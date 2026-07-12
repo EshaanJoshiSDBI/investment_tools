@@ -1,0 +1,2 @@
+"""AMC-specific source adapters."""
+
