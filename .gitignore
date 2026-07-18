@@ -9,3 +9,17 @@ portfolio_manager.db
 *.xls
 *.xlsx
 *.csv
+
+tests/
+test/
+specs/
+spec/
+__tests__/
+test_*
+*_test.*
+*_tests.*
+spec_*
+*_spec.*
+*_specs.*
+*.test.*
+*.spec.*
