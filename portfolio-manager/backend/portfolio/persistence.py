@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import sqlite3
 import uuid
 from contextlib import contextmanager
@@ -29,7 +30,7 @@ from portfolio.models import (
 from portfolio.validation import validate_holdings, validate_target_weights
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 PARSER_VERSION = "portfolio-upload-v1"
 
 SCHEMA = """
@@ -39,7 +40,9 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 CREATE TABLE IF NOT EXISTS portfolio_imports (
  id INTEGER PRIMARY KEY, ingestion_key TEXT NOT NULL UNIQUE, sha256 TEXT NOT NULL,
  filename TEXT NOT NULL, file_size INTEGER NOT NULL CHECK(file_size >= 0),
- parser_version TEXT NOT NULL, imported_at TEXT NOT NULL
+ parser_version TEXT NOT NULL, imported_at TEXT NOT NULL,
+ source_type TEXT NOT NULL DEFAULT 'file' CHECK(source_type IN ('file','kite')),
+ source_account_ref TEXT, structural_fingerprint TEXT
 );
 CREATE TABLE IF NOT EXISTS portfolio_snapshots (
  id INTEGER PRIMARY KEY, snapshot_key TEXT NOT NULL UNIQUE,
@@ -79,14 +82,21 @@ CREATE INDEX IF NOT EXISTS idx_portfolio_prices_latest
  ON portfolio_price_observations(snapshot_id, symbol, observed_at DESC, id DESC);
 """
 
+MIGRATION_V2 = (
+    "ALTER TABLE portfolio_imports ADD COLUMN source_type TEXT NOT NULL DEFAULT 'file' "
+    "CHECK(source_type IN ('file','kite'))",
+    "ALTER TABLE portfolio_imports ADD COLUMN source_account_ref TEXT",
+    "ALTER TABLE portfolio_imports ADD COLUMN structural_fingerprint TEXT",
+)
+
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def ingestion_key(payload: bytes) -> tuple[str, str]:
+def ingestion_key(payload: bytes, parser_version: str = PARSER_VERSION) -> tuple[str, str]:
     sha256 = hashlib.sha256(payload).hexdigest()
-    identity = hashlib.sha256(f"{sha256}|{PARSER_VERSION}".encode()).hexdigest()
+    identity = hashlib.sha256(f"{sha256}|{parser_version}".encode()).hexdigest()
     return identity, sha256
 
 
@@ -135,6 +145,20 @@ class SQLitePortfolioRepository:
                     self.connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
             except sqlite3.Error as exc:
                 raise MigrationError(f"Could not initialize portfolio database: {exc}") from exc
+        elif version == 1:
+            try:
+                with self.connection:
+                    for statement in MIGRATION_V2:
+                        self.connection.execute(statement)
+                    self.connection.execute(
+                        "INSERT INTO schema_migrations(version,applied_at) VALUES(?,?)",
+                        (SCHEMA_VERSION, utc_now()),
+                    )
+                    self.connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+            except sqlite3.Error as exc:
+                raise MigrationError(f"Could not migrate portfolio database to v2: {exc}") from exc
+            self.connection.executescript(SCHEMA)
+            self.connection.commit()
         else:
             self.connection.executescript(SCHEMA)
             self.connection.commit()
@@ -166,7 +190,7 @@ class SQLitePortfolioRepository:
         self, filename: str, payload: bytes, holdings: list[Holding]
     ) -> tuple[str, WorkspaceState]:
         validate_holdings(holdings)
-        key, sha256 = ingestion_key(payload)
+        key, sha256 = ingestion_key(payload, PARSER_VERSION)
         existing = self._existing_import_snapshot(key)
         if existing:
             if existing["lifecycle_status"] == "active":
@@ -201,9 +225,9 @@ class SQLitePortfolioRepository:
             with self.transaction() as conn:
                 conn.execute(
                     """INSERT INTO portfolio_imports(
-                       ingestion_key,sha256,filename,file_size,parser_version,imported_at
-                       ) VALUES(?,?,?,?,?,?)""",
-                    (key, sha256, filename, len(payload), PARSER_VERSION, now),
+                       ingestion_key,sha256,filename,file_size,parser_version,imported_at,source_type
+                       ) VALUES(?,?,?,?,?,?,?)""",
+                    (key, sha256, filename, len(payload), PARSER_VERSION, now, "file"),
                 )
                 import_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
                 if active:
@@ -235,6 +259,120 @@ class SQLitePortfolioRepository:
         except sqlite3.Error as exc:
             raise PortfolioPersistenceError(f"Could not persist portfolio upload: {exc}") from exc
         return "ingested", self.workspace()
+
+    def sync_kite(
+        self,
+        holdings: list[Holding],
+        *,
+        account_ref: str,
+        structural_fingerprint: str,
+        parser_version: str,
+    ) -> tuple[str, WorkspaceState]:
+        validate_holdings(holdings, allow_empty=True)
+        active = self._active_row()
+        now = utc_now()
+        prices = {holding.symbol: holding.ltp for holding in holdings}
+
+        if (
+            active
+            and active["source_type"] == "kite"
+            and active["source_account_ref"] == account_ref
+            and active["structural_fingerprint"] == structural_fingerprint
+        ):
+            try:
+                with self.transaction() as conn:
+                    conn.executemany(
+                        "INSERT INTO portfolio_price_observations(snapshot_id,symbol,price,provider,observed_at) VALUES(?,?,?,?,?)",
+                        [
+                            (active["id"], symbol, price, "kite", now)
+                            for symbol, price in prices.items()
+                        ],
+                    )
+            except sqlite3.Error as exc:
+                raise PortfolioPersistenceError(
+                    f"Could not persist Kite price refresh: {exc}"
+                ) from exc
+            return "prices_refreshed", self.workspace()
+
+        snapshot_key = str(uuid.uuid4())
+        payload = json.dumps(
+            {
+                "account_ref": account_ref,
+                "event_key": snapshot_key,
+                "structural_fingerprint": structural_fingerprint,
+                "observed_at": now,
+                "prices": prices,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+        key, sha256 = ingestion_key(payload, parser_version)
+        prior_targets: dict[str, float] = {}
+        fresh_cash = 0.0
+        rounding = RoundingMode.nearest
+        if active:
+            prior_targets = self._target_map(active["id"])
+            settings = self.connection.execute(
+                "SELECT fresh_cash,rounding_mode FROM portfolio_snapshot_settings WHERE snapshot_id=?",
+                (active["id"],),
+            ).fetchone()
+            fresh_cash = float(settings["fresh_cash"])
+            rounding = RoundingMode(settings["rounding_mode"])
+        symbols = {holding.symbol for holding in holdings}
+        targets = (
+            {symbol: prior_targets.get(symbol, 0.0) for symbol in symbols}
+            if active
+            else _initial_targets(holdings)
+        )
+
+        try:
+            with self.transaction() as conn:
+                conn.execute(
+                    """INSERT INTO portfolio_imports(
+                       ingestion_key,sha256,filename,file_size,parser_version,imported_at,
+                       source_type,source_account_ref,structural_fingerprint
+                       ) VALUES(?,?,?,?,?,?,?,?,?)""",
+                    (
+                        key,
+                        sha256,
+                        "Zerodha Kite holdings",
+                        len(payload),
+                        parser_version,
+                        now,
+                        "kite",
+                        account_ref,
+                        structural_fingerprint,
+                    ),
+                )
+                import_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+                if active:
+                    conn.execute(
+                        "UPDATE portfolio_snapshots SET lifecycle_status='superseded',superseded_at=? WHERE id=?",
+                        (now, active["id"]),
+                    )
+                conn.execute(
+                    "INSERT INTO portfolio_snapshots(snapshot_key,import_id,created_at) VALUES(?,?,?)",
+                    (snapshot_key, import_id, now),
+                )
+                snapshot_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+                self._insert_snapshot_data(
+                    conn, snapshot_id, holdings, targets, fresh_cash, rounding, now
+                )
+                conn.executemany(
+                    "INSERT INTO portfolio_price_observations(snapshot_id,symbol,price,provider,observed_at) VALUES(?,?,?,?,?)",
+                    [
+                        (snapshot_id, symbol, price, "kite", now)
+                        for symbol, price in prices.items()
+                    ],
+                )
+                if active:
+                    conn.execute(
+                        "UPDATE portfolio_snapshots SET superseded_by_snapshot_id=? WHERE id=?",
+                        (snapshot_id, active["id"]),
+                    )
+        except sqlite3.Error as exc:
+            raise PortfolioPersistenceError(f"Could not persist Kite holdings: {exc}") from exc
+        return "snapshot_created", self.workspace()
 
     def _insert_snapshot_data(
         self, conn: sqlite3.Connection, snapshot_id: int, holdings: list[Holding],
@@ -307,6 +445,7 @@ class SQLitePortfolioRepository:
         source = SourceMetadata(
             filename=row["filename"], file_size=row["file_size"], sha256=row["sha256"],
             parser_version=row["parser_version"], imported_at=row["imported_at"],
+            source_type=row["source_type"],
         )
         target_map = self._target_map(row["id"])
         latest = max((observed for _, observed in prices.values() if observed), default=None)
@@ -411,7 +550,9 @@ class SQLitePortfolioRepository:
 
     def _active_row(self) -> sqlite3.Row | None:
         return self.connection.execute(
-            "SELECT * FROM portfolio_snapshots WHERE lifecycle_status='active'"
+            """SELECT s.*,i.source_type,i.source_account_ref,i.structural_fingerprint
+               FROM portfolio_snapshots s JOIN portfolio_imports i ON i.id=s.import_id
+               WHERE s.lifecycle_status='active'"""
         ).fetchone()
 
     def _existing_import_snapshot(self, key: str) -> sqlite3.Row | None:
@@ -425,7 +566,8 @@ class SQLitePortfolioRepository:
 
     def _snapshot_row(self, snapshot_key: str) -> sqlite3.Row:
         row = self.connection.execute(
-            """SELECT s.*,i.filename,i.file_size,i.sha256,i.parser_version,i.imported_at
+            """SELECT s.*,i.filename,i.file_size,i.sha256,i.parser_version,i.imported_at,
+                      i.source_type,i.source_account_ref,i.structural_fingerprint
                FROM portfolio_snapshots s JOIN portfolio_imports i ON i.id=s.import_id
                WHERE s.snapshot_key=?""",
             (snapshot_key,),

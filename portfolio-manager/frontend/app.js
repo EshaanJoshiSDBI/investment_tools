@@ -9,10 +9,13 @@ const state = {
   saveTimer: null,
   saveInFlight: null,
   dirty: false,
+  kite: { configured: false, authenticated: false, login_time: null },
+  busy: false,
 };
 
 const elements = Object.fromEntries([
   "apiStatus", "saveStatus", "portfolioFile", "selectedFileName", "uploadButton",
+  "kiteStatus", "kitePrimaryButton", "kiteDisconnectButton",
   "exportBackupButton", "importBackupLabel", "backupFile", "errorArea", "infoArea",
   "historyPanel", "snapshotSelect", "snapshotMetadata", "restoreButton", "holdingsBody",
   "refreshPricesButton", "priceMetadata", "rebalanceButton", "exportButton", "freshCash",
@@ -50,10 +53,21 @@ async function apiFetch(path, options = {}) {
 
 async function initialize() {
   try {
-    const health = await apiFetch("/api/health");
+    const [health, workspace, kiteStatus] = await Promise.all([
+      apiFetch("/api/health"), apiFetch("/api/portfolio"), apiFetch("/api/kite/status"),
+    ]);
     elements.apiStatus.textContent = `Backend online · DB v${health.schema_version}`;
     elements.apiStatus.classList.add("ok");
-    applyWorkspace(await apiFetch("/api/portfolio"));
+    state.kite = kiteStatus;
+    applyWorkspace(workspace);
+    renderKiteStatus();
+    const callback = new URLSearchParams(window.location.search).get("kite");
+    if (callback) {
+      window.history.replaceState({}, "", `${window.location.pathname}${window.location.hash}`);
+      setMessage(callback === "connected" ? "info" : "error", callback === "connected"
+        ? "Kite connected. Import holdings when you are ready."
+        : "Kite login was not completed.");
+    }
   } catch (error) {
     elements.apiStatus.textContent = "Start FastAPI on :8000";
     elements.apiStatus.classList.remove("ok");
@@ -68,6 +82,7 @@ function applyWorkspace(workspace) {
   renderHistory();
   elements.exportBackupButton.disabled = !workspace.active;
   elements.importBackupLabel.classList.toggle("disabled", Boolean(workspace.active));
+  renderKiteStatus();
 }
 
 function setPortfolio(portfolio) {
@@ -99,8 +114,13 @@ function renderSummary() {
 function renderHoldings() {
   const holdings = state.current?.holdings || [];
   if (!holdings.length) {
-    elements.holdingsBody.innerHTML = '<tr><td colspan="9" class="empty-cell">Upload a portfolio to begin.</td></tr>';
-    elements.priceMetadata.textContent = "Current allocation from backend calculations.";
+    const kiteEmpty = state.current?.source?.source_type === "kite";
+    elements.holdingsBody.innerHTML = `<tr><td colspan="9" class="empty-cell">${kiteEmpty
+      ? "Kite returned no current equity holdings."
+      : "Upload a portfolio to begin."}</td></tr>`;
+    elements.priceMetadata.textContent = kiteEmpty
+      ? "This is a valid empty Zerodha Kite snapshot."
+      : "Current allocation from backend calculations.";
     return;
   }
   elements.holdingsBody.replaceChildren();
@@ -148,7 +168,7 @@ function renderHistory() {
   });
   const current = state.current;
   elements.snapshotMetadata.textContent = current
-    ? `${current.source.filename} · imported ${new Date(current.source.imported_at).toLocaleString()} · ${current.lifecycle_status}`
+    ? `${current.source.source_type === "kite" ? "Zerodha Kite holdings" : current.source.filename} · imported ${new Date(current.source.imported_at).toLocaleString()} · ${current.lifecycle_status}`
     : "";
   elements.restoreButton.hidden = !current || current.is_active;
 }
@@ -248,6 +268,74 @@ async function uploadPortfolio() {
   finally { setBusy(false); }
 }
 
+function renderKiteStatus() {
+  const kite = state.kite;
+  const activeKite = state.active?.source?.source_type === "kite";
+  elements.kiteStatus.classList.toggle("ok", kite.authenticated);
+  elements.kiteDisconnectButton.hidden = !kite.authenticated;
+  if (!kite.configured) {
+    elements.kiteStatus.textContent = "Not configured";
+    elements.kitePrimaryButton.textContent = "Kite unavailable";
+    elements.kitePrimaryButton.disabled = true;
+  } else if (!kite.authenticated) {
+    elements.kiteStatus.textContent = "Disconnected";
+    elements.kitePrimaryButton.textContent = "Connect Kite";
+    elements.kitePrimaryButton.disabled = state.busy;
+  } else {
+    elements.kiteStatus.textContent = "Connected";
+    elements.kitePrimaryButton.textContent = activeKite ? "Kite portfolio active" : "Import from Kite";
+    elements.kitePrimaryButton.disabled = state.busy || activeKite;
+  }
+  updateControls();
+}
+
+async function connectKite() {
+  try {
+    setBusy(true);
+    const payload = await apiFetch("/api/kite/session", { method: "POST" });
+    window.top.location.assign(payload.login_url);
+  } catch (error) {
+    setMessage("error", error.message);
+    setBusy(false);
+  }
+}
+
+async function syncKite() {
+  try {
+    await flushWorkingState();
+    setBusy(true);
+    clearRebalance();
+    const result = await apiFetch("/api/kite/holdings/sync", { method: "POST" });
+    applyWorkspace(result.workspace);
+    setMessage("info", result.status === "snapshot_created"
+      ? "Kite holdings imported as a new snapshot."
+      : "Kite prices refreshed without creating a new snapshot.");
+  } catch (error) {
+    if (/session|connect/i.test(error.message)) {
+      state.kite.authenticated = false;
+      renderKiteStatus();
+    }
+    setMessage("error", error.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+async function disconnectKite() {
+  try {
+    setBusy(true);
+    await apiFetch("/api/kite/session", { method: "DELETE" });
+    state.kite = await apiFetch("/api/kite/status");
+    renderKiteStatus();
+    setMessage("info", "Kite disconnected for this backend session.");
+  } catch (error) { setMessage("error", error.message); }
+  finally { setBusy(false); }
+}
+
+function handleKitePrimary() {
+  return state.kite.authenticated ? syncKite() : connectKite();
+}
+
 async function selectSnapshot() {
   try {
     await flushWorkingState();
@@ -268,6 +356,9 @@ async function restoreSnapshot() {
 }
 
 async function refreshPrices() {
+  if (state.current?.source?.source_type === "kite") {
+    return state.kite.authenticated ? syncKite() : connectKite();
+  }
   try {
     await flushWorkingState();
     setBusy(true);
@@ -348,14 +439,20 @@ function csvCell(value) {
 
 function updateControls() {
   const editable = Boolean(state.current?.is_active);
-  elements.refreshPricesButton.disabled = !editable;
-  elements.rebalanceButton.disabled = !editable;
+  const hasHoldings = Boolean(state.current?.holdings?.length);
+  const kiteSource = state.current?.source?.source_type === "kite";
+  elements.refreshPricesButton.textContent = kiteSource
+    ? (state.kite.authenticated ? "Refresh from Kite" : "Reconnect Kite")
+    : "Refresh Prices";
+  elements.refreshPricesButton.disabled = !editable || state.busy;
+  elements.rebalanceButton.disabled = !editable || !hasHoldings || state.busy;
   elements.freshCash.disabled = !editable;
   elements.roundingMode.disabled = !editable;
   elements.exportButton.disabled = !state.rebalanceResult?.rows?.length;
 }
 
 function setBusy(busy) {
+  state.busy = busy;
   elements.uploadButton.disabled = busy;
   elements.snapshotSelect.disabled = busy;
   elements.restoreButton.disabled = busy;
@@ -364,9 +461,12 @@ function setBusy(busy) {
     elements.refreshPricesButton.disabled = true;
     elements.rebalanceButton.disabled = true;
   } else updateControls();
+  renderKiteStatus();
 }
 
 elements.uploadButton.addEventListener("click", uploadPortfolio);
+elements.kitePrimaryButton.addEventListener("click", handleKitePrimary);
+elements.kiteDisconnectButton.addEventListener("click", disconnectKite);
 elements.portfolioFile.addEventListener("change", () => {
   elements.selectedFileName.textContent = elements.portfolioFile.files[0]?.name || "Choose portfolio file";
 });

@@ -3,7 +3,9 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+portfolio-manager/.env
 /data/*.db
+/data/
 /data/*.sqlite
 /data/*.sqlite3
 /data/*.db-wal

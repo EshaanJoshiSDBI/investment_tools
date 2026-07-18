@@ -36,6 +36,13 @@ const elements = {
   commandResults: document.querySelector("#commandResults"),
 };
 
+let kiteCallback = new URLSearchParams(window.location.search).get("kite");
+
+function toolUrl(tool) {
+  if (tool.id !== "portfolio" || !kiteCallback) return tool.url;
+  return `${tool.url}?kite=${encodeURIComponent(kiteCallback)}`;
+}
+
 function getActiveTool() {
   const id = window.location.hash.slice(1);
   return tools.find((tool) => tool.id === id) || tools[0];
@@ -49,11 +56,12 @@ function selectTool(tool, updateHash = true) {
 
   elements.loader.classList.remove("hidden");
   elements.frame.classList.remove("ready");
-  elements.frame.src = tool.url;
+  const resolvedUrl = toolUrl(tool);
+  elements.frame.src = resolvedUrl;
   elements.frame.title = tool.name;
   elements.name.textContent = tool.name;
   elements.description.textContent = tool.description;
-  elements.openButton.href = tool.url;
+  elements.openButton.href = resolvedUrl;
   document.title = `${tool.name} — Ledger`;
 
   document.querySelectorAll(".tool-link").forEach((link) => {
@@ -102,6 +110,10 @@ function renderCommands(query = "") {
 renderNavigation();
 renderCommands();
 selectTool(getActiveTool(), false);
+if (kiteCallback) {
+  window.history.replaceState({}, "", `${window.location.pathname}${window.location.hash}`);
+  kiteCallback = null;
+}
 
 window.addEventListener("hashchange", () => selectTool(getActiveTool(), false));
 elements.frame.addEventListener("load", () => {

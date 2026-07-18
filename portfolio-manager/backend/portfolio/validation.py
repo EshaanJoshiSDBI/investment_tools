@@ -52,8 +52,8 @@ def validate_holdings_frame(df: pd.DataFrame) -> None:
         raise PortfolioValidationError("; ".join(errors))
 
 
-def validate_holdings(holdings: list[Holding]) -> None:
-    if not holdings:
+def validate_holdings(holdings: list[Holding], *, allow_empty: bool = False) -> None:
+    if not holdings and not allow_empty:
         raise PortfolioValidationError("At least one holding is required")
     duplicates = _duplicates(holding.symbol for holding in holdings)
     if duplicates:

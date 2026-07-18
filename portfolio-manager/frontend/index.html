@@ -22,8 +22,8 @@
       <section class="panel upload-panel" aria-labelledby="uploadTitle">
         <div class="upload-intro">
           <p class="upload-kicker">Portfolio import</p>
-          <h2 id="uploadTitle">Upload Portfolio</h2>
-          <p class="muted">CSV, XLSX, or XLS with the columns below.</p>
+          <h2 id="uploadTitle">Import Portfolio</h2>
+          <p class="muted">Upload a broker file or pull equity holdings from Zerodha Kite.</p>
           <div class="required-columns" aria-label="Required columns">
             <span>Stock Symbol</span>
             <span>Qty</span>
@@ -32,15 +32,39 @@
           </div>
         </div>
         <div class="upload-workspace">
-          <label class="file-drop" for="portfolioFile">
-            <input id="portfolioFile" type="file" accept=".csv,.xlsx,.xls" />
-            <span class="file-icon" aria-hidden="true">XLS</span>
-            <span>
-              <strong id="selectedFileName">Choose portfolio file</strong>
-              <small>Drop or select a spreadsheet</small>
-            </span>
-          </label>
-          <button id="uploadButton" type="button">Upload</button>
+          <div class="import-source">
+            <div class="source-heading">
+              <div>
+                <strong>Portfolio file</strong>
+                <small>CSV, XLSX, or XLS</small>
+              </div>
+            </div>
+            <div class="source-actions">
+              <label class="file-drop" for="portfolioFile">
+                <input id="portfolioFile" type="file" accept=".csv,.xlsx,.xls" />
+                <span class="file-icon" aria-hidden="true">XLS</span>
+                <span>
+                  <strong id="selectedFileName">Choose portfolio file</strong>
+                  <small>Drop or select a spreadsheet</small>
+                </span>
+              </label>
+              <button id="uploadButton" type="button">Upload</button>
+            </div>
+          </div>
+          <div class="import-source kite-source">
+            <div class="source-heading">
+              <div>
+                <strong>Zerodha Kite</strong>
+                <small>Manual, read-only equity holdings</small>
+              </div>
+              <span class="source-status" id="kiteStatus">Checking…</span>
+            </div>
+            <p class="source-description">Connect for the current trading day, then import explicitly.</p>
+            <div class="kite-actions">
+              <button id="kitePrimaryButton" type="button" disabled>Connect Kite</button>
+              <button id="kiteDisconnectButton" class="secondary" type="button" hidden>Disconnect</button>
+            </div>
+          </div>
           <div class="backup-actions">
             <button id="exportBackupButton" class="secondary" type="button" disabled>Export Backup</button>
             <label class="button secondary" id="importBackupLabel">

@@ -27,7 +27,9 @@ def _logical_rows(repository: SQLitePortfolioRepository) -> dict[str, list[dict[
     conn = repository.connection
     rows: dict[str, list[dict[str, Any]]] = {}
     rows["imports"] = [dict(row) for row in conn.execute(
-        "SELECT ingestion_key,sha256,filename,file_size,parser_version,imported_at FROM portfolio_imports ORDER BY ingestion_key"
+        """SELECT ingestion_key,sha256,filename,file_size,parser_version,imported_at,
+                  source_type,source_account_ref,structural_fingerprint
+           FROM portfolio_imports ORDER BY ingestion_key"""
     )]
     rows["snapshots"] = [dict(row) for row in conn.execute(
         """SELECT s.snapshot_key,i.ingestion_key AS import_key,s.created_at,s.lifecycle_status,
@@ -119,9 +121,19 @@ def import_bundle(payload: bytes, repository: SQLitePortfolioRepository) -> dict
             imports: dict[str, int] = {}
             for row in data["imports"]:
                 conn.execute(
-                    """INSERT INTO portfolio_imports(ingestion_key,sha256,filename,file_size,parser_version,imported_at)
-                       VALUES(?,?,?,?,?,?)""",
-                    tuple(row[key] for key in ("ingestion_key", "sha256", "filename", "file_size", "parser_version", "imported_at")),
+                    """INSERT INTO portfolio_imports(
+                       ingestion_key,sha256,filename,file_size,parser_version,imported_at,
+                       source_type,source_account_ref,structural_fingerprint
+                       ) VALUES(?,?,?,?,?,?,?,?,?)""",
+                    (
+                        *(row[key] for key in (
+                            "ingestion_key", "sha256", "filename", "file_size",
+                            "parser_version", "imported_at",
+                        )),
+                        row.get("source_type", "file"),
+                        row.get("source_account_ref"),
+                        row.get("structural_fingerprint"),
+                    ),
                 )
                 imports[row["ingestion_key"]] = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
             snapshots: dict[str, int] = {}
@@ -176,9 +188,18 @@ def _validate_data(data: dict[str, list[dict[str, Any]]]) -> None:
         raise BundleError("Portfolio bundle must contain exactly one active snapshot")
     imports = set(import_keys)
     snapshots = set(snapshot_keys)
+    source_types = {
+        row["ingestion_key"]: row.get("source_type", "file")
+        for row in data["imports"]
+    }
+    snapshot_sources: dict[str, str] = {}
     for row in data["snapshots"]:
         if row["import_key"] not in imports:
             raise BundleError("Portfolio bundle references an unknown import")
+        source_type = source_types[row["import_key"]]
+        if source_type not in {"file", "kite"}:
+            raise BundleError("Portfolio bundle contains an unknown source type")
+        snapshot_sources[row["snapshot_key"]] = source_type
         for field in ("superseded_by_snapshot_key", "restored_from_snapshot_key"):
             if row[field] is not None and row[field] not in snapshots:
                 raise BundleError("Portfolio bundle references an unknown snapshot")
@@ -197,7 +218,7 @@ def _validate_data(data: dict[str, list[dict[str, Any]]]) -> None:
             symbol=row["symbol"], quantity=row["quantity"], avg_price=row["avg_price"], ltp=row["uploaded_ltp"]
         ))
     for key, holdings in grouped_holdings.items():
-        validate_holdings(holdings)
+        validate_holdings(holdings, allow_empty=snapshot_sources[key] == "kite")
     for row in data["targets"]:
         grouped_targets[row["snapshot_key"]].append(TargetWeight(
             symbol=row["symbol"], target_weight_pct=row["target_weight_pct"]

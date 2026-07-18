@@ -7,7 +7,7 @@ migrations, backups, and failures remain isolated.
 | Project | Purpose | Interface |
 | --- | --- | --- |
 | [`mf_tracker`](./mf_tracker/) | Validate, ingest, inspect, and compare monthly mutual-fund portfolio disclosures from supported AMCs while retaining immutable history. | FastAPI web app, Python library, and CLI |
-| [`portfolio-manager`](./portfolio-manager/) | Upload an equity portfolio, review valuation and unrealized P&L, refresh market prices, and calculate or export rebalancing trades. | FastAPI backend and browser UI |
+| [`portfolio-manager`](./portfolio-manager/) | Upload an equity portfolio or manually import read-only Zerodha Kite holdings, review valuation and unrealized P&L, refresh prices, and calculate or export rebalancing trades. | FastAPI backend and browser UI |
 
 Each project has its own dependencies and virtual environment. A shared browser
 shell at the repository root provides one place to open the tools while keeping
@@ -120,8 +120,9 @@ columns:
 - `Avg.Price`
 - `LTP`
 
-It consolidates duplicate symbols, calculates valuation and unrealized P&L,
-optionally refreshes prices through Yahoo Finance, accepts target weights and
+It consolidates duplicate file symbols, can explicitly pull long-term equity
+holdings through Zerodha Kite, calculates valuation and unrealized P&L,
+refreshes prices through the source-appropriate provider, accepts target weights and
 fresh cash, applies a selectable whole-share rounding policy, and exports the
 resulting buy/sell/hold plan as CSV.
 
@@ -142,6 +143,7 @@ The projects have separate test suites:
 
 ## Scope
 
-Both projects are local analysis tools. They do not connect to a brokerage or
-place orders, and their output should be reviewed before making investment
-decisions.
+Both projects are local analysis tools. Portfolio Manager can make read-only,
+user-initiated Zerodha Kite holdings calls when configured, but neither project
+places or changes brokerage orders. Their output should be reviewed before making
+investment decisions.

@@ -233,10 +233,77 @@ h2 {
 
 .upload-workspace {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) auto;
+  grid-template-columns: repeat(2, minmax(250px, 1fr));
   gap: 12px;
   align-content: center;
   padding: 24px 26px;
+}
+
+.import-source {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid rgba(154, 164, 173, 0.28);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(14, 16, 18, 0.58);
+}
+
+.source-heading,
+.source-actions,
+.kite-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.source-heading {
+  justify-content: space-between;
+}
+
+.source-heading strong,
+.source-heading small {
+  display: block;
+}
+
+.source-heading small,
+.source-description {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.source-description {
+  margin: 0;
+}
+
+.source-status {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.source-status.ok {
+  border-color: rgba(56, 217, 150, 0.5);
+  color: var(--buy);
+}
+
+.source-actions .file-drop {
+  flex: 1;
+}
+
+.source-actions > button {
+  min-width: 92px;
+}
+
+.kite-actions {
+  align-self: end;
+}
+
+.kite-actions button {
+  min-height: 40px;
 }
 
 .file-drop {
@@ -308,13 +375,6 @@ h2 {
   font-size: 0.78rem;
 }
 
-.upload-workspace button {
-  min-width: 112px;
-  min-height: 76px;
-  align-self: stretch;
-  font-size: 0.98rem;
-}
-
 .backup-actions {
   display: flex;
   grid-column: 1 / -1;
@@ -324,6 +384,12 @@ h2 {
 .backup-actions button,
 .backup-actions .button {
   min-height: 40px;
+}
+
+.source-actions > button {
+  min-height: 76px;
+  align-self: stretch;
+  font-size: 0.98rem;
 }
 
 .history-panel {

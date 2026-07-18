@@ -6,7 +6,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 MAX_PORTFOLIO_ITEMS = 5_000
-SYMBOL_PATTERN = re.compile(r"^[A-Z0-9][A-Z0-9.&_-]*$")
+SYMBOL_PATTERN = re.compile(
+    r"^[A-Z0-9][A-Z0-9.&_-]*(?::[A-Z0-9][A-Z0-9.&_-]*)?$"
+)
 
 
 class PortfolioModel(BaseModel):
@@ -64,6 +66,7 @@ class SourceMetadata(PortfolioModel):
     sha256: str
     parser_version: str
     imported_at: str
+    source_type: Literal["file", "kite"] = "file"
 
 
 class SnapshotSummary(PortfolioModel):
@@ -92,6 +95,25 @@ class WorkspaceState(PortfolioModel):
 
 class UploadResult(PortfolioModel):
     status: Literal["ingested", "no_op"]
+    workspace: WorkspaceState
+
+
+class KiteStatus(PortfolioModel):
+    configured: bool
+    authenticated: bool
+    login_time: Optional[str] = None
+
+
+class KiteLoginResponse(PortfolioModel):
+    login_url: str
+
+
+class KiteSessionClosed(PortfolioModel):
+    authenticated: Literal[False] = False
+
+
+class KiteSyncResponse(PortfolioModel):
+    status: Literal["snapshot_created", "prices_refreshed"]
     workspace: WorkspaceState
 
 
