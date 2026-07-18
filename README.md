@@ -1,7 +1,8 @@
 # Investment Tools
 
 This repository contains two independent local tools for working with investment
-data:
+data. Each tool owns a separate SQLite database under `data/` so schemas,
+migrations, backups, and failures remain isolated.
 
 | Project | Purpose | Interface |
 | --- | --- | --- |
@@ -19,7 +20,7 @@ MF Tracker on port 5174:
 
 ```bash
 cd mf_tracker
-.venv/bin/mf-tracker serve --db mf_tracker.sqlite3
+.venv/bin/mf-tracker serve --db ../data/mf_tracker.sqlite3
 ```
 
 Start the Portfolio Manager API on port 8000:
@@ -59,15 +60,15 @@ python3.12 -m venv .venv
 
 .venv/bin/mf-tracker validate path/to/workbook.xlsx --json
 .venv/bin/mf-tracker ingest-file path/to/workbook.xlsx \
-  --db mf_tracker.sqlite3
+  --db ../data/mf_tracker.sqlite3
 
 # Browser UI and API
-.venv/bin/mf-tracker serve --db mf_tracker.sqlite3
+.venv/bin/mf-tracker serve --db ../data/mf_tracker.sqlite3
 ```
 
 Always reuse the same `--db` path to reopen previously ingested data. The
-database is stored in `mf_tracker.sqlite3`, and original workbooks are archived
-in `mf_tracker.sqlite3.sources/` relative to this directory.
+workspace convention stores it in `data/mf_tracker.sqlite3`, with original
+workbooks in `data/mf_tracker.sqlite3.sources/`.
 
 Important capabilities include:
 
@@ -86,7 +87,8 @@ metadata rules, persistence guarantees, and all operational commands.
 `portfolio-manager` is a local portfolio analysis and rebalancing application.
 Its FastAPI backend owns file validation and portfolio calculations; the
 framework-free browser UI handles uploads, target-weight entry, result display,
-and CSV trade export.
+and CSV trade export. Uploaded portfolio snapshots, target settings, and
+successful refreshed prices persist in `data/portfolio_manager.sqlite3`.
 
 ### Quick start
 

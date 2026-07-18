@@ -13,7 +13,10 @@
           <p class="eyebrow">Local MVP</p>
           <h1>Portfolio Manager</h1>
         </div>
-        <div class="status-pill" id="apiStatus">Backend not checked</div>
+        <div class="header-statuses">
+          <span class="save-status" id="saveStatus"></span>
+          <div class="status-pill" id="apiStatus">Backend not checked</div>
+        </div>
       </header>
 
       <section class="panel upload-panel" aria-labelledby="uploadTitle">
@@ -38,8 +41,28 @@
             </span>
           </label>
           <button id="uploadButton" type="button">Upload</button>
+          <div class="backup-actions">
+            <button id="exportBackupButton" class="secondary" type="button" disabled>Export Backup</button>
+            <label class="button secondary" id="importBackupLabel">
+              Import Backup
+              <input id="backupFile" type="file" accept=".zip" hidden />
+            </label>
+          </div>
           <div class="message error" id="errorArea" role="alert"></div>
           <div class="message info" id="infoArea"></div>
+        </div>
+      </section>
+
+      <section class="panel history-panel" id="historyPanel" hidden aria-labelledby="historyTitle">
+        <div>
+          <p class="upload-kicker">Saved locally</p>
+          <h2 id="historyTitle">Portfolio History</h2>
+          <p class="muted" id="snapshotMetadata"></p>
+        </div>
+        <div class="history-controls">
+          <label for="snapshotSelect">Snapshot</label>
+          <select id="snapshotSelect"></select>
+          <button id="restoreButton" class="secondary" type="button" hidden>Restore Snapshot</button>
         </div>
       </section>
 
@@ -66,7 +89,7 @@
         <div class="section-header">
           <div>
             <h2 id="holdingsTitle">Holdings</h2>
-            <p class="muted">Current allocation from backend calculations.</p>
+            <p class="muted" id="priceMetadata">Current allocation from backend calculations.</p>
           </div>
           <button id="refreshPricesButton" class="secondary" type="button" disabled>
             Refresh Prices

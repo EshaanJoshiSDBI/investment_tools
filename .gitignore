@@ -3,7 +3,20 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
-portfolio_manager.db
+/data/*.db
+/data/*.sqlite
+/data/*.sqlite3
+/data/*.db-wal
+/data/*.db-shm
+/data/*.db-journal
+/data/*.sqlite-wal
+/data/*.sqlite-shm
+/data/*.sqlite-journal
+/data/*.sqlite3-wal
+/data/*.sqlite3-shm
+/data/*.sqlite3-journal
+/data/*.zip
+/data/*.sources/
 **.sqlite3.sources/
 
 # Data

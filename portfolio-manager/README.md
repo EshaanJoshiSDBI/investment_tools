@@ -4,7 +4,7 @@ Local portfolio analysis and rebalancing application with a FastAPI backend and
 a plain HTML/CSS/JS frontend. It can import broker portfolio files, calculate
 valuation and unrealized P&L, refresh prices, generate whole-share rebalancing
 trades, and export those trades as CSV. No Streamlit, frontend framework,
-database, or build step is used.
+or build step is used. Portfolio state persists in a local SQLite database.
 
 ## Requirements
 
@@ -26,6 +26,9 @@ python3.11 -m venv .venv
 
 The API runs at `http://127.0.0.1:8000`; interactive OpenAPI documentation is
 available at `http://127.0.0.1:8000/docs`.
+
+By default the backend stores data in `../../data/portfolio_manager.sqlite3`
+relative to this project. Override it with `PORTFOLIO_MANAGER_DB=/path/to/db`.
 
 ## Run Frontend
 
@@ -53,12 +56,11 @@ needed, start it in a third terminal:
 
 ```bash
 cd mf_tracker
-.venv/bin/mf-tracker serve --db mf_tracker.sqlite3
+.venv/bin/mf-tracker serve --db ../data/mf_tracker.sqlite3
 ```
 
-Portfolio Manager does not currently persist uploaded portfolios. Upload the
-portfolio file again after restarting its backend or refreshing the browser.
-MF Tracker data is independent and persists in its configured SQLite database.
+Portfolio Manager and MF Tracker use independent SQLite databases. Portfolio
+Manager reloads its active portfolio after browser or backend restarts.
 
 ## Workflow
 
@@ -67,7 +69,24 @@ MF Tracker data is independent and persists in its configured SQLite database.
 3. Optionally refresh prices through Yahoo Finance.
 4. Enter target weights, optional fresh cash, and a whole-share rounding mode.
 5. Calculate the buy, sell, or hold plan and review its cash impact and drift.
-6. Export the displayed trade plan as `rebalance-trades.csv`.
+6. Review or restore older immutable snapshots from Portfolio History.
+7. Export the displayed trade plan as `rebalance-trades.csv` or download a
+   portable Portfolio Manager backup.
+
+## Persistence and backups
+
+Each successful new upload creates an active snapshot and supersedes the previous
+one without deleting it. Restoring history clones the selected snapshot into a
+new active snapshot. Target weights, fresh cash, rounding mode, and successful
+timestamped price refreshes are retained. P&L, weights, summaries, and rebalance
+plans are recalculated and are not stored.
+
+The database stores the normalized holdings plus the uploaded filename, size,
+SHA-256, and parser version. Original broker files are not copied into storage.
+The Export Backup action produces a versioned natural-key ZIP; Import Backup is
+accepted only when the destination database contains no portfolio snapshots.
+SQLite files and backups contain unencrypted local financial data and are ignored
+by Git.
 
 ## Expected Portfolio Columns
 
@@ -87,12 +106,15 @@ Symbols may contain letters, numbers, `.`, `&`, `_`, and `-`. Price refresh trea
 ## API
 
 - `GET /api/health`
+- `GET /api/portfolio`
 - `POST /api/portfolio/upload`
-- `POST /api/portfolio/rebalance`
-- `POST /api/portfolio/refresh-prices`
-- `POST /api/portfolio/summary`
-
-`/api/portfolio/summary` is a lightweight recalculation helper used by the plain frontend after optional price refresh, so the browser does not own portfolio math.
+- `GET /api/portfolio/snapshots/{snapshot_id}`
+- `POST /api/portfolio/snapshots/{snapshot_id}/restore`
+- `PUT /api/portfolio/snapshots/{snapshot_id}/working-state`
+- `POST /api/portfolio/snapshots/{snapshot_id}/refresh-prices`
+- `POST /api/portfolio/snapshots/{snapshot_id}/rebalance`
+- `GET /api/portfolio/bundles/export`
+- `POST /api/portfolio/bundles/import`
 
 Fresh cash is deposit-only and must be zero or positive. Target weights may total less than 100%; the remainder is held as cash and included when calculating final weights and drift.
 

@@ -16,7 +16,7 @@ python3.12 -m venv .venv
 Start the API and framework-free frontend together on port 5174:
 
 ```bash
-.venv/bin/mf-tracker serve --db mf_tracker.sqlite3
+.venv/bin/mf-tracker serve --db ../data/mf_tracker.sqlite3
 ```
 
 Open `http://127.0.0.1:5174`, or serve the repository root on port 5173 and
@@ -32,26 +32,27 @@ Browser uploads accept up to 20 `.xls` or `.xlsx` files at once and 25 MiB per
 file. Bundle restoration and server-side directory ingestion remain CLI-only
 safeguards.
 
-The `--db` path controls which persistent workspace is opened. When the command
-above is run from this directory, records remain in `mf_tracker.sqlite3` and
-original source workbooks remain in `mf_tracker.sqlite3.sources/`. Reuse the
-same command after a restart to reopen the same data. Back up both locations, or
-download a portable backup bundle from the Data screen.
+The `--db` path controls which persistent workspace is opened. The repository
+convention stores records in `../data/mf_tracker.sqlite3` and original source
+workbooks in `../data/mf_tracker.sqlite3.sources/`. Reuse the same command after
+a restart to reopen the same data. Back up both locations, or download a
+portable backup bundle from the Data screen. Existing databases remain valid at
+their current paths and are never moved automatically.
 
 ## Usage
 
 ```bash
 .venv/bin/mf-tracker validate sheets/ppfas/PPFAS_Monthly_Portfolio_Report_May_31_2026.xls
-.venv/bin/mf-tracker ingest-file sheets/ppfas/PPFAS_Monthly_Portfolio_Report_May_31_2026.xls --db mf_tracker.sqlite3
-.venv/bin/mf-tracker ingest-directory sheets/ppfas --db mf_tracker.sqlite3 --json
+.venv/bin/mf-tracker ingest-file sheets/ppfas/PPFAS_Monthly_Portfolio_Report_May_31_2026.xls --db ../data/mf_tracker.sqlite3
+.venv/bin/mf-tracker ingest-directory sheets/ppfas --db ../data/mf_tracker.sqlite3 --json
 .venv/bin/mf-tracker validate sheets/helios/Helios-Flexi-Cap-Fund-Monthly-Portfolio-as-on-30th-June-2026.xlsx
-.venv/bin/mf-tracker ingest-directory sheets/helios --db mf_tracker.sqlite3 --json
+.venv/bin/mf-tracker ingest-directory sheets/helios --db ../data/mf_tracker.sqlite3 --json
 .venv/bin/mf-tracker validate sheets/oldbridge/OBFX_c2050b88e7.xlsx --amc oldbridge --json
-.venv/bin/mf-tracker ingest-directory sheets/oldbridge --amc oldbridge --db mf_tracker.sqlite3 --dry-run
-.venv/bin/mf-tracker ingest-file sheets/oldbridge/OBFE_9d7d1d029f.xlsx --amc oldbridge --db mf_tracker.sqlite3
-.venv/bin/mf-tracker verify-archive --db mf_tracker.sqlite3 --json
-.venv/bin/mf-tracker export-bundle --db mf_tracker.sqlite3 --output mf_tracker-backup.zip
-.venv/bin/mf-tracker import-bundle mf_tracker-backup.zip --db restored.sqlite3
+.venv/bin/mf-tracker ingest-directory sheets/oldbridge --amc oldbridge --db ../data/mf_tracker.sqlite3 --dry-run
+.venv/bin/mf-tracker ingest-file sheets/oldbridge/OBFE_9d7d1d029f.xlsx --amc oldbridge --db ../data/mf_tracker.sqlite3
+.venv/bin/mf-tracker verify-archive --db ../data/mf_tracker.sqlite3 --json
+.venv/bin/mf-tracker export-bundle --db ../data/mf_tracker.sqlite3 --output ../data/mf_tracker-backup.zip
+.venv/bin/mf-tracker import-bundle ../data/mf_tracker-backup.zip --db ../data/restored.sqlite3
 ```
 
 PPFAS publishes one monthly workbook containing a tab per fund. Helios publishes

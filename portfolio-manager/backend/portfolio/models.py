@@ -1,6 +1,6 @@
 from enum import Enum
 import re
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -58,6 +58,43 @@ class PortfolioUploadResponse(PortfolioModel):
     summary: PortfolioSummary
 
 
+class SourceMetadata(PortfolioModel):
+    filename: str
+    file_size: int
+    sha256: str
+    parser_version: str
+    imported_at: str
+
+
+class SnapshotSummary(PortfolioModel):
+    snapshot_id: str
+    filename: str
+    created_at: str
+    lifecycle_status: Literal["active", "superseded"]
+    restored_from_snapshot_id: Optional[str] = None
+
+
+class PortfolioState(PortfolioUploadResponse):
+    snapshot_id: str
+    lifecycle_status: Literal["active", "superseded"]
+    is_active: bool
+    source: SourceMetadata
+    target_weights: list["TargetWeight"]
+    fresh_cash: float
+    rounding_mode: RoundingMode
+    latest_price_at: Optional[str] = None
+
+
+class WorkspaceState(PortfolioModel):
+    active: Optional[PortfolioState]
+    snapshots: list[SnapshotSummary]
+
+
+class UploadResult(PortfolioModel):
+    status: Literal["ingested", "no_op"]
+    workspace: WorkspaceState
+
+
 class TargetWeight(PortfolioModel):
     symbol: str
     target_weight_pct: float = Field(ge=0, le=100)
@@ -70,6 +107,12 @@ class TargetWeight(PortfolioModel):
 
 class RebalanceRequest(PortfolioModel):
     holdings: list[Holding] = Field(min_length=1, max_length=MAX_PORTFOLIO_ITEMS)
+    target_weights: list[TargetWeight] = Field(max_length=MAX_PORTFOLIO_ITEMS)
+    fresh_cash: float = Field(default=0, ge=0)
+    rounding_mode: RoundingMode = RoundingMode.nearest
+
+
+class WorkingStateRequest(PortfolioModel):
     target_weights: list[TargetWeight] = Field(max_length=MAX_PORTFOLIO_ITEMS)
     fresh_cash: float = Field(default=0, ge=0)
     rounding_mode: RoundingMode = RoundingMode.nearest
@@ -122,3 +165,7 @@ class PriceResult(PortfolioModel):
 
 class RefreshPricesResponse(PortfolioModel):
     prices: list[PriceResult]
+
+
+class PersistedRefreshResponse(RefreshPricesResponse):
+    portfolio: PortfolioState

@@ -53,6 +53,25 @@ button.secondary {
   color: var(--text);
 }
 
+.button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 16px;
+  background: var(--panel-soft);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.button.disabled {
+  pointer-events: none;
+  opacity: 0.45;
+}
+
 input,
 select {
   min-height: 40px;
@@ -123,6 +142,17 @@ h2 {
 .status-pill.ok {
   border-color: rgba(56, 217, 150, 0.5);
   color: var(--buy);
+}
+
+.header-statuses {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.save-status {
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .panel,
@@ -283,6 +313,41 @@ h2 {
   min-height: 76px;
   align-self: stretch;
   font-size: 0.98rem;
+}
+
+.backup-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 8px;
+}
+
+.backup-actions button,
+.backup-actions .button {
+  min-height: 40px;
+}
+
+.history-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.history-panel[hidden] {
+  display: none;
+}
+
+.history-controls {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.history-controls label {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .summary-grid,
@@ -453,9 +518,14 @@ tbody tr:hover {
   }
 
   .app-header,
-  .section-header {
+  .section-header,
+  .history-panel {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .header-statuses {
+    justify-content: space-between;
   }
 
   .upload-panel {
