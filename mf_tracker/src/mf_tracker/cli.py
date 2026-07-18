@@ -62,6 +62,11 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--db", required=True)
     verify.add_argument("--source-store")
     verify.add_argument("--json", action="store_true")
+    serve = commands.add_parser("serve")
+    serve.add_argument("--db", required=True)
+    serve.add_argument("--source-store")
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=5174)
     return parser
 
 
@@ -97,6 +102,18 @@ def _archive(db: str, configured: str | None) -> SourceArchive:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        if args.command == "serve":
+            try:
+                import uvicorn
+                from .web.main import create_app
+            except ImportError as exc:
+                raise MfTrackerError(
+                    "web dependencies are not installed; run pip install -e '.[web]'"
+                ) from exc
+            uvicorn.run(
+                create_app(args.db, args.source_store), host=args.host, port=args.port
+            )
+            return 0
         if args.command == "validate":
             parsed = parse_workbook(args.path, amc=args.amc, metadata=_metadata(args))
             holdings = [holding for snapshot in parsed.snapshots for holding in snapshot.holdings]

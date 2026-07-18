@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "mf-tracker"
 version = "0.1.0"
 description = "AMC portfolio snapshot ingestion and comparison library"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.12"
 dependencies = [
   "openpyxl>=3.1,<4",
   "polars>=1.20,<2",
@@ -15,6 +15,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<9"]
+web = [
+  "fastapi>=0.115,<1",
+  "python-multipart>=0.0.20,<1",
+  "uvicorn>=0.34,<1",
+]
 
 [project.scripts]
 mf-tracker = "mf_tracker.cli:main"
@@ -25,4 +30,3 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
-

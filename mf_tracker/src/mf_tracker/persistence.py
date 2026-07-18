@@ -409,6 +409,139 @@ class SQLiteRepository:
         ).fetchall()
         return pl.DataFrame([dict(row) for row in rows], strict=False, infer_schema_length=None) if rows else pl.DataFrame()
 
+    def list_amcs(self) -> list[dict[str, Any]]:
+        rows = self.connection.execute(
+            """SELECT a.id,a.slug,a.name,COUNT(DISTINCT f.id) AS fund_count,
+               MAX(CASE WHEN s.lifecycle_status='active' THEN s.report_date END) AS latest_report_date
+               FROM amcs a LEFT JOIN funds f ON f.amc_id=a.id
+               LEFT JOIN snapshots s ON s.fund_id=f.id GROUP BY a.id ORDER BY a.name"""
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def list_funds(self, amc_slug: str | None = None) -> list[dict[str, Any]]:
+        where = "WHERE a.slug=?" if amc_slug else ""
+        params = (amc_slug,) if amc_slug else ()
+        rows = self.connection.execute(
+            f"""SELECT f.id,f.sheet_code,f.name,a.slug AS amc_slug,a.name AS amc_name,
+                COUNT(DISTINCT CASE WHEN s.lifecycle_status='active' THEN s.id END) AS snapshot_count,
+                MAX(CASE WHEN s.lifecycle_status='active' THEN s.report_date END) AS latest_report_date
+                FROM funds f JOIN amcs a ON a.id=f.amc_id
+                LEFT JOIN snapshots s ON s.fund_id=f.id {where}
+                GROUP BY f.id ORDER BY a.name,f.name""", params
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def list_snapshots(self, fund_id: int, *, include_superseded: bool = False) -> list[dict[str, Any]]:
+        active = "" if include_superseded else "AND s.lifecycle_status='active'"
+        rows = self.connection.execute(
+            f"""SELECT s.id,s.report_date,s.lifecycle_status,s.reported_total_value_lakh,
+                s.reported_total_weight,s.superseded_at,s.superseded_by_snapshot_id,
+                sf.id AS source_file_id,sf.filename,sf.reader,sf.parser_version,sf.ingested_at,
+                (SELECT COUNT(*) FROM holdings h WHERE h.snapshot_id=s.id) AS holding_count,
+                (SELECT COUNT(*) FROM ingestion_issues i WHERE i.snapshot_id=s.id) AS issue_count
+                FROM snapshots s JOIN source_files sf ON sf.id=s.source_file_id
+                WHERE s.fund_id=? {active} ORDER BY s.report_date DESC,s.id DESC""", (fund_id,)
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def overview(self, months: int = 6, amc_slug: str | None = None) -> dict[str, Any]:
+        where = "WHERE a.slug=?" if amc_slug else ""
+        params: tuple[Any, ...] = (amc_slug,) if amc_slug else ()
+        dates = [row[0] for row in self.connection.execute(
+            f"""SELECT DISTINCT s.report_date FROM snapshots s JOIN funds f ON f.id=s.fund_id
+                JOIN amcs a ON a.id=f.amc_id {where} AND s.lifecycle_status='active'
+                ORDER BY s.report_date DESC LIMIT ?""" if where else
+            """SELECT DISTINCT s.report_date FROM snapshots s JOIN funds f ON f.id=s.fund_id
+                JOIN amcs a ON a.id=f.amc_id WHERE s.lifecycle_status='active'
+                ORDER BY s.report_date DESC LIMIT ?""",
+            (*params, months),
+        ).fetchall()]
+        funds = self.list_funds(amc_slug)
+        cells: list[dict[str, Any]] = []
+        if dates:
+            placeholders = ",".join("?" for _ in dates)
+            rows = self.connection.execute(
+                f"""SELECT s.fund_id,s.report_date,s.id AS snapshot_id,
+                    COUNT(i.id) AS issue_count,
+                    SUM(CASE WHEN i.severity='error' THEN 1 ELSE 0 END) AS error_count
+                    FROM snapshots s LEFT JOIN ingestion_issues i ON i.snapshot_id=s.id
+                    WHERE s.lifecycle_status='active' AND s.report_date IN ({placeholders})
+                    GROUP BY s.id""", dates
+            ).fetchall()
+            cells = [dict(row) for row in rows]
+        counts = self.connection.execute(
+            """SELECT (SELECT COUNT(*) FROM amcs) AS amc_count,
+               (SELECT COUNT(*) FROM funds WHERE status='active') AS fund_count,
+               (SELECT COUNT(*) FROM snapshots WHERE lifecycle_status='active') AS snapshot_count,
+               (SELECT COUNT(*) FROM ingestion_issues WHERE severity='warning') AS warning_count"""
+        ).fetchone()
+        return {"dates": dates, "funds": funds, "cells": cells, "counts": dict(counts)}
+
+    def query_holdings(
+        self, fund_id: int, report_date: str, *, search: str = "", asset_class: str = "",
+        sort: str = "weight", direction: str = "desc", page: int = 1, page_size: int = 50,
+    ) -> dict[str, Any]:
+        columns = {
+            "name": "h.display_name", "quantity": "h.quantity", "market_value": "h.market_value_lakh",
+            "weight": "h.weight", "asset_class": "h.asset_class", "instrument_type": "h.instrument_type",
+        }
+        order = columns.get(sort, "h.weight")
+        order_direction = "ASC" if direction == "asc" else "DESC"
+        clauses = ["s.fund_id=?", "s.report_date=?", "s.lifecycle_status='active'"]
+        params: list[Any] = [fund_id, report_date]
+        if search:
+            clauses.append("(h.display_name LIKE ? OR h.isin LIKE ?)")
+            params.extend([f"%{search}%", f"%{search}%"])
+        if asset_class:
+            clauses.append("h.asset_class=?")
+            params.append(asset_class)
+        where = " AND ".join(clauses)
+        total = self.connection.execute(
+            f"SELECT COUNT(*) FROM snapshots s JOIN holdings h ON h.snapshot_id=s.id WHERE {where}", params
+        ).fetchone()[0]
+        rows = self.connection.execute(
+            f"""SELECT h.identity_key,h.display_name,h.isin,h.asset_class,h.instrument_type,
+                h.quantity,h.market_value_lakh,h.weight,h.ytm,h.ytc,h.direction,h.expiry,
+                h.industry_rating,h.section,h.subsection
+                FROM snapshots s JOIN holdings h ON h.snapshot_id=s.id WHERE {where}
+                ORDER BY {order} {order_direction},h.display_name ASC LIMIT ? OFFSET ?""",
+            (*params, page_size, (page - 1) * page_size),
+        ).fetchall()
+        return {"items": [dict(row) for row in rows], "total": total, "page": page, "page_size": page_size}
+
+    def list_imports(self, page: int = 1, page_size: int = 25) -> dict[str, Any]:
+        total = self.connection.execute("SELECT COUNT(*) FROM source_files").fetchone()[0]
+        rows = self.connection.execute(
+            """SELECT sf.id,sf.filename,sf.file_size,sf.report_date,sf.parser_version,sf.reader,
+               sf.status,sf.ingested_at,sf.effective_metadata_json,states.lifecycle_status,
+               states.snapshot_count,states.active_snapshot_count,
+               (SELECT COUNT(*) FROM ingestion_issues i WHERE i.source_file_id=sf.id) AS issue_count
+               FROM source_files sf JOIN source_file_states states ON states.source_file_id=sf.id
+               ORDER BY sf.ingested_at DESC,sf.id DESC LIMIT ? OFFSET ?""",
+            (page_size, (page - 1) * page_size),
+        ).fetchall()
+        items = []
+        for row in rows:
+            item = dict(row)
+            item["effective_metadata"] = json.loads(item.pop("effective_metadata_json"))
+            items.append(item)
+        return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+    def import_detail(self, source_file_id: int) -> dict[str, Any] | None:
+        source = self.connection.execute(
+            "SELECT * FROM source_files WHERE id=?", (source_file_id,)
+        ).fetchone()
+        if not source:
+            return None
+        result = dict(source)
+        for field in ("metadata_overrides_json", "effective_metadata_json"):
+            result[field.removesuffix("_json")] = json.loads(result.pop(field))
+        result["issues"] = [dict(row) for row in self.connection.execute(
+            "SELECT severity,code,message,sheet,source_row,raw_value FROM ingestion_issues WHERE source_file_id=? ORDER BY id",
+            (source_file_id,),
+        ).fetchall()]
+        return result
+
     def archive_report(self) -> dict[str, list[str]]:
         if not self.source_archive:
             raise SourceArchiveError("repository has no source archive configured")
