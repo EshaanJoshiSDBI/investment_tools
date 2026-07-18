@@ -1,6 +1,10 @@
-# Portfolio Manager MVP
+# Portfolio Manager
 
-Local portfolio rebalancing MVP with a FastAPI backend and a plain HTML/CSS/JS frontend. No Streamlit, frontend framework, database, or build step is used.
+Local portfolio analysis and rebalancing application with a FastAPI backend and
+a plain HTML/CSS/JS frontend. It can import broker portfolio files, calculate
+valuation and unrealized P&L, refresh prices, generate whole-share rebalancing
+trades, and export those trades as CSV. No Streamlit, frontend framework,
+database, or build step is used.
 
 ## Requirements
 
@@ -16,12 +20,12 @@ Local portfolio rebalancing MVP with a FastAPI backend and a plain HTML/CSS/JS f
 ```bash
 cd portfolio-manager/backend
 python3.11 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m uvicorn main:app --reload
 ```
 
-The API runs at `http://127.0.0.1:8000`.
+The API runs at `http://127.0.0.1:8000`; interactive OpenAPI documentation is
+available at `http://127.0.0.1:8000/docs`.
 
 ## Run Frontend
 
@@ -34,9 +38,18 @@ python -m http.server 5173
 
 Then open `http://127.0.0.1:5173`.
 
+## Workflow
+
+1. Upload a CSV, XLSX, or XLS portfolio export.
+2. Review market value, cost, unrealized P&L, and current weights.
+3. Optionally refresh prices through Yahoo Finance.
+4. Enter target weights, optional fresh cash, and a whole-share rounding mode.
+5. Calculate the buy, sell, or hold plan and review its cash impact and drift.
+6. Export the displayed trade plan as `rebalance-trades.csv`.
+
 ## Expected Portfolio Columns
 
-Mandatory MVP columns:
+Required columns:
 
 - `Stock Symbol`
 - `Qty`
@@ -61,9 +74,15 @@ Symbols may contain letters, numbers, `.`, `&`, `_`, and `-`. Price refresh trea
 
 Fresh cash is deposit-only and must be zero or positive. Target weights may total less than 100%; the remainder is held as cash and included when calculating final weights and drift.
 
+Target weights cannot exceed 100% in total. Rebalancing supports `nearest`,
+`floor`, and `ceil` whole-share rounding. The output includes total buys, total
+sells, net cash required, available-cash surplus or shortfall, final weights,
+and weight drift. Calculations are informational only; the application does not
+connect to a brokerage or place orders.
+
 ## Tests
 
 ```bash
 cd portfolio-manager/backend
-pytest
+.venv/bin/python -m pytest
 ```
