@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Portfolio Manager MVP</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow">Local MVP</p>
+          <h1>Portfolio Manager</h1>
+        </div>
+        <div class="status-pill" id="apiStatus">Backend not checked</div>
+      </header>
+
+      <section class="panel upload-panel" aria-labelledby="uploadTitle">
+        <div class="upload-intro">
+          <p class="upload-kicker">Portfolio import</p>
+          <h2 id="uploadTitle">Upload Portfolio</h2>
+          <p class="muted">CSV, XLSX, or XLS with the columns below.</p>
+          <div class="required-columns" aria-label="Required columns">
+            <span>Stock Symbol</span>
+            <span>Qty</span>
+            <span>Avg.Price</span>
+            <span>LTP</span>
+          </div>
+        </div>
+        <div class="upload-workspace">
+          <label class="file-drop" for="portfolioFile">
+            <input id="portfolioFile" type="file" accept=".csv,.xlsx,.xls" />
+            <span class="file-icon" aria-hidden="true">XLS</span>
+            <span>
+              <strong id="selectedFileName">Choose portfolio file</strong>
+              <small>Drop or select a spreadsheet</small>
+            </span>
+          </label>
+          <button id="uploadButton" type="button">Upload</button>
+          <div class="message error" id="errorArea" role="alert"></div>
+          <div class="message info" id="infoArea"></div>
+        </div>
+      </section>
+
+      <section class="summary-grid" id="summaryGrid" aria-label="Portfolio summary">
+        <article class="metric-card">
+          <span>Total Market Value</span>
+          <strong id="totalMarketValue">-</strong>
+        </article>
+        <article class="metric-card">
+          <span>Total Cost</span>
+          <strong id="totalCost">-</strong>
+        </article>
+        <article class="metric-card">
+          <span>Unrealized P&amp;L</span>
+          <strong id="unrealizedPnl">-</strong>
+        </article>
+        <article class="metric-card">
+          <span>Holdings</span>
+          <strong id="holdingCount">-</strong>
+        </article>
+      </section>
+
+      <section class="panel" aria-labelledby="holdingsTitle">
+        <div class="section-header">
+          <div>
+            <h2 id="holdingsTitle">Holdings</h2>
+            <p class="muted">Current allocation from backend calculations.</p>
+          </div>
+          <button id="refreshPricesButton" class="secondary" type="button" disabled>
+            Refresh Prices
+          </button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Qty</th>
+                <th>Avg Price</th>
+                <th>LTP</th>
+                <th>Market Value</th>
+                <th>Current Weight %</th>
+                <th>Unrealized P&amp;L</th>
+                <th>Unrealized P&amp;L %</th>
+                <th>Target Weight %</th>
+              </tr>
+            </thead>
+            <tbody id="holdingsBody">
+              <tr><td colspan="9" class="empty-cell">Upload a portfolio to begin.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="rebalanceTitle">
+        <div class="section-header">
+          <div>
+            <h2 id="rebalanceTitle">Rebalancer</h2>
+            <p class="muted">Backend calculates target quantities and cash impact.</p>
+          </div>
+          <div class="rebalance-controls">
+            <label>
+              Fresh cash
+              <input id="freshCash" type="number" value="0" step="0.01" />
+            </label>
+            <label>
+              Rounding
+              <select id="roundingMode">
+                <option value="nearest">Nearest</option>
+                <option value="floor">Floor</option>
+                <option value="ceil">Ceil</option>
+              </select>
+            </label>
+            <button id="rebalanceButton" type="button" disabled>Calculate</button>
+          </div>
+        </div>
+
+        <div class="cash-grid" id="cashGrid">
+          <div><span>Total Buy</span><strong id="totalBuy">-</strong></div>
+          <div><span>Total Sell</span><strong id="totalSell">-</strong></div>
+          <div><span>Net Cash Required</span><strong id="netCash">-</strong></div>
+          <div><span>Surplus / Shortfall</span><strong id="cashDelta">-</strong></div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Symbol</th>
+                <th>Action</th>
+                <th>Trade Qty</th>
+                <th>Trade Value</th>
+                <th>Current Weight %</th>
+                <th>Target Weight %</th>
+                <th>Final Weight %</th>
+                <th>Drift %</th>
+              </tr>
+            </thead>
+            <tbody id="rebalanceBody">
+              <tr><td colspan="8" class="empty-cell">Run a rebalance to see trades.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="footer-actions">
+          <button id="exportButton" class="secondary" type="button" disabled>Export Trades CSV</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
