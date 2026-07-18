@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b0d0c" />
+    <title>Ledger — Investment tools</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Investment tools">
+        <a class="brand" href="#portfolio" aria-label="Ledger home">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M7 4v24M7 9h13a5 5 0 0 1 0 10H7m13 0 6 9" />
+          </svg>
+          <span>Ledger</span>
+        </a>
+
+        <nav class="tool-nav" id="toolNav" aria-label="Tools"></nav>
+
+        <div class="sidebar-footer">
+          <span class="local-mark"><i></i> Local workspace</span>
+          <button class="collapse-button" id="collapseButton" type="button" aria-label="Collapse sidebar" aria-expanded="true">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 7-5 5 5 5" /></svg>
+          </button>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="breadcrumb">Tools <span>/</span> <strong id="activeToolName">Portfolio Manager</strong></p>
+            <p class="tool-description" id="activeToolDescription">Review positions and plan rebalancing trades.</p>
+          </div>
+          <div class="topbar-actions">
+            <span class="shortcut"><kbd>⌘</kbd><kbd>K</kbd> Switch tool</span>
+            <a class="open-button" id="openButton" href="./portfolio-manager/frontend/" target="_blank" rel="noreferrer">
+              Open separately
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 13 13 7m-5 0h5v5M13 11v4H5V7h4" /></svg>
+            </a>
+          </div>
+        </header>
+
+        <section class="stage" aria-live="polite">
+          <div class="loader" id="loader"><span></span><p>Opening tool…</p></div>
+          <iframe id="toolFrame" title="Portfolio Manager" src="./portfolio-manager/frontend/"></iframe>
+        </section>
+      </main>
+    </div>
+
+    <dialog class="command-menu" id="commandMenu">
+      <div class="command-head">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6" /><path d="m16 16 4 4" /></svg>
+        <input id="commandSearch" type="search" placeholder="Switch tools…" autocomplete="off" />
+        <kbd>Esc</kbd>
+      </div>
+      <div class="command-results" id="commandResults"></div>
+    </dialog>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

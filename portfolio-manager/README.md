@@ -38,6 +38,28 @@ python -m http.server 5173
 
 Then open `http://127.0.0.1:5173`.
 
+## Run with the shared Ledger workspace
+
+Keep the backend command above running. In a second terminal, serve the
+repository root rather than the frontend subdirectory:
+
+```bash
+cd ../..
+python3 -m http.server 5173
+```
+
+Open `http://127.0.0.1:5173` and select Portfolio Manager. If MF Tracker is also
+needed, start it in a third terminal:
+
+```bash
+cd mf_tracker
+.venv/bin/mf-tracker serve --db mf_tracker.sqlite3
+```
+
+Portfolio Manager does not currently persist uploaded portfolios. Upload the
+portfolio file again after restarting its backend or refreshing the browser.
+MF Tracker data is independent and persists in its configured SQLite database.
+
 ## Workflow
 
 1. Upload a CSV, XLSX, or XLS portfolio export.

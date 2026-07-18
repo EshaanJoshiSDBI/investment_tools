@@ -4,6 +4,7 @@ __pycache__/
 .pytest_cache/
 .venv/
 portfolio_manager.db
+**.sqlite3.sources/
 
 # Data
 *.xls

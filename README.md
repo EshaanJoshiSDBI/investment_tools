@@ -5,11 +5,40 @@ data:
 
 | Project | Purpose | Interface |
 | --- | --- | --- |
-| [`mf_tracker`](./mf_tracker/) | Validate and ingest monthly mutual-fund portfolio disclosures from supported AMCs, retain immutable history, and move audited data between installations. | Python library and CLI |
+| [`mf_tracker`](./mf_tracker/) | Validate, ingest, inspect, and compare monthly mutual-fund portfolio disclosures from supported AMCs while retaining immutable history. | FastAPI web app, Python library, and CLI |
 | [`portfolio-manager`](./portfolio-manager/) | Upload an equity portfolio, review valuation and unrealized P&L, refresh market prices, and calculate or export rebalancing trades. | FastAPI backend and browser UI |
 
-Each project has its own dependencies and virtual environment. They do not need
-to be installed or run together.
+Each project has its own dependencies and virtual environment. A shared browser
+shell at the repository root provides one place to open the tools while keeping
+their implementations independent.
+
+## Start the complete workspace
+
+Run the three services in separate terminals. From the repository root, start
+MF Tracker on port 5174:
+
+```bash
+cd mf_tracker
+.venv/bin/mf-tracker serve --db mf_tracker.sqlite3
+```
+
+Start the Portfolio Manager API on port 8000:
+
+```bash
+cd portfolio-manager/backend
+.venv/bin/python -m uvicorn main:app --reload
+```
+
+Finally, serve the shared Ledger shell from the repository root on port 5173:
+
+```bash
+python3 -m http.server 5173
+```
+
+Open <http://127.0.0.1:5173>. Portfolio Manager is loaded from its frontend
+directory and calls the API on port 8000. MF Tracker is loaded from its FastAPI
+process on port 5174. Keep all three terminal processes running while using the
+workspace.
 
 ## `mf_tracker`
 
@@ -21,17 +50,24 @@ content-addressed source archive.
 
 ### Quick start
 
-Python 3.12 is required.
+Python 3.12 is required; the package currently pins `>=3.12,<3.13`.
 
 ```bash
 cd mf_tracker
 python3.12 -m venv .venv
-.venv/bin/python -m pip install -e '.[dev]'
+.venv/bin/python -m pip install -e '.[web,dev]'
 
 .venv/bin/mf-tracker validate path/to/workbook.xlsx --json
 .venv/bin/mf-tracker ingest-file path/to/workbook.xlsx \
   --db mf_tracker.sqlite3
+
+# Browser UI and API
+.venv/bin/mf-tracker serve --db mf_tracker.sqlite3
 ```
+
+Always reuse the same `--db` path to reopen previously ingested data. The
+database is stored in `mf_tracker.sqlite3`, and original workbooks are archived
+in `mf_tracker.sqlite3.sources/` relative to this directory.
 
 Important capabilities include:
 
@@ -63,10 +99,10 @@ python3.11 -m venv .venv
 .venv/bin/python -m uvicorn main:app --reload
 ```
 
-Start the frontend in a second terminal:
+Start the shared frontend in a second terminal:
 
 ```bash
-cd portfolio-manager/frontend
+cd ../..
 python3 -m http.server 5173
 ```
 
