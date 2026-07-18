@@ -20,6 +20,14 @@ REQUIRED_RENAME_MAP = {
     "LTP": "ltp",
 }
 
+ZERODHA_HOLDINGS_RENAME_MAP = {
+    "Instrument": "Stock Symbol",
+    "Qty.": "Qty",
+    "Avg. cost": "Avg.Price",
+}
+ZERODHA_HOLDINGS_COLUMNS = {*ZERODHA_HOLDINGS_RENAME_MAP, "LTP"}
+ZERODHA_RENAMED_COLUMNS = set(ZERODHA_HOLDINGS_RENAME_MAP.values())
+
 
 def read_portfolio_file(filename: str, content: bytes) -> pd.DataFrame:
     suffix = Path(filename).suffix.lower()
@@ -49,6 +57,7 @@ def _looks_like_text_table(content: bytes) -> bool:
 def normalize_portfolio_frame(df: pd.DataFrame) -> list[Holding]:
     df = df.copy()
     df.columns = [str(column).strip() for column in df.columns]
+    df = normalize_source_columns(df)
     validate_required_columns(df.columns)
 
     normalized = df[list(REQUIRED_RENAME_MAP)].copy()
@@ -62,6 +71,17 @@ def normalize_portfolio_frame(df: pd.DataFrame) -> list[Holding]:
 
     holdings = [Holding(**record) for record in normalized.to_dict(orient="records")]
     return calculate_holdings(holdings)
+
+
+def normalize_source_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Translate known broker export schemas to the canonical upload schema."""
+    columns = set(df.columns)
+    if (
+        ZERODHA_HOLDINGS_COLUMNS.issubset(columns)
+        and ZERODHA_RENAMED_COLUMNS.isdisjoint(columns)
+    ):
+        return df.rename(columns=ZERODHA_HOLDINGS_RENAME_MAP)
+    return df
 
 
 def _aggregate_duplicate_symbols(df: pd.DataFrame) -> pd.DataFrame:
