@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0b0d0c" />
     <title>Ledger — Investment tools</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=20260719-ui5" />
   </head>
   <body>
     <div class="app-shell">
@@ -28,23 +28,9 @@
       </aside>
 
       <main class="workspace">
-        <header class="topbar">
-          <div>
-            <p class="breadcrumb">Tools <span>/</span> <strong id="activeToolName">Portfolio Manager</strong></p>
-            <p class="tool-description" id="activeToolDescription">Review positions and plan rebalancing trades.</p>
-          </div>
-          <div class="topbar-actions">
-            <span class="shortcut"><kbd>⌘</kbd><kbd>K</kbd> Switch tool</span>
-            <a class="open-button" id="openButton" href="./portfolio-manager/frontend/" target="_blank" rel="noreferrer">
-              Open separately
-              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 13 13 7m-5 0h5v5M13 11v4H5V7h4" /></svg>
-            </a>
-          </div>
-        </header>
-
         <section class="stage" aria-live="polite">
           <div class="loader" id="loader"><span></span><p>Opening tool…</p></div>
-          <iframe id="toolFrame" title="Portfolio Manager" src="./portfolio-manager/frontend/"></iframe>
+          <iframe id="toolFrame" title="Portfolio Manager" src="./portfolio-manager/frontend/?v=20260719-ui5"></iframe>
         </section>
       </main>
     </div>
@@ -56,8 +42,15 @@
         <kbd>Esc</kbd>
       </div>
       <div class="command-results" id="commandResults"></div>
+      <div class="command-footer">
+        <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+        <a id="openButton" href="./portfolio-manager/frontend/" target="_blank" rel="noreferrer">
+          Open current tool separately
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 13 13 7m-5 0h5v5M13 11v4H5V7h4" /></svg>
+        </a>
+      </div>
     </dialog>
 
-    <script src="./app.js"></script>
+    <script src="./app.js?v=20260719-ui5"></script>
   </body>
 </html>

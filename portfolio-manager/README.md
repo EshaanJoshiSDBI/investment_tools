@@ -6,6 +6,9 @@ pull long-term equity holdings from Zerodha Kite, calculate
 valuation and unrealized P&L, refresh prices, generate whole-share rebalancing
 trades, and export those trades as CSV. No Streamlit, frontend framework,
 or build step is used. Portfolio state persists in a local SQLite database.
+The shared Ledger UI centers the workflow on current-versus-target allocation,
+with source updates, immutable history, configuration, and trade preview kept in
+one responsive workspace.
 
 ## Requirements
 
@@ -93,9 +96,12 @@ Manager reloads its active portfolio after browser or backend restarts.
 2. Review market value, cost, unrealized P&L, and current weights.
 3. Refresh file-sourced prices through Yahoo Finance, or manually refresh a
    Kite-sourced portfolio through Kite.
-4. Enter target weights, optional fresh cash, and a whole-share rounding mode.
-5. Calculate the buy, sell, or hold plan and review its cash impact and drift.
-6. Review or restore older immutable snapshots from Portfolio History.
+4. Set target weights directly beside current allocation; any remainder below
+   100% is intentionally held as cash.
+5. Enter optional fresh cash, choose a whole-share rounding mode, and preview
+   the resulting buy, sell, or hold plan with reconciled cash impact.
+6. Inspect older immutable snapshots in Portfolio History, or restore one as a
+   new active snapshot.
 7. Export the displayed trade plan as `rebalance-trades.csv` or download a
    portable Portfolio Manager backup.
 

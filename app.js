@@ -4,7 +4,7 @@ const tools = [
     name: "Portfolio Manager",
     shortName: "Portfolio",
     description: "Review positions and plan rebalancing trades.",
-    url: "./portfolio-manager/frontend/",
+    url: "./portfolio-manager/frontend/?v=20260719-ui5",
     icon: "chart",
   },
   {
@@ -27,8 +27,6 @@ const elements = {
   nav: document.querySelector("#toolNav"),
   frame: document.querySelector("#toolFrame"),
   loader: document.querySelector("#loader"),
-  name: document.querySelector("#activeToolName"),
-  description: document.querySelector("#activeToolDescription"),
   openButton: document.querySelector("#openButton"),
   collapseButton: document.querySelector("#collapseButton"),
   commandMenu: document.querySelector("#commandMenu"),
@@ -40,7 +38,8 @@ let kiteCallback = new URLSearchParams(window.location.search).get("kite");
 
 function toolUrl(tool) {
   if (tool.id !== "portfolio" || !kiteCallback) return tool.url;
-  return `${tool.url}?kite=${encodeURIComponent(kiteCallback)}`;
+  const separator = tool.url.includes("?") ? "&" : "?";
+  return `${tool.url}${separator}kite=${encodeURIComponent(kiteCallback)}`;
 }
 
 function getActiveTool() {
@@ -59,8 +58,6 @@ function selectTool(tool, updateHash = true) {
   const resolvedUrl = toolUrl(tool);
   elements.frame.src = resolvedUrl;
   elements.frame.title = tool.name;
-  elements.name.textContent = tool.name;
-  elements.description.textContent = tool.description;
   elements.openButton.href = resolvedUrl;
   document.title = `${tool.name} — Ledger`;
 
@@ -107,6 +104,12 @@ function renderCommands(query = "") {
     .forEach((tool) => elements.commandResults.appendChild(makeToolButton(tool, "command-item")));
 }
 
+elements.frame.addEventListener("load", () => {
+  elements.loader.classList.add("hidden");
+  elements.frame.classList.add("ready");
+});
+window.addEventListener("hashchange", () => selectTool(getActiveTool(), false));
+
 renderNavigation();
 renderCommands();
 selectTool(getActiveTool(), false);
@@ -114,12 +117,6 @@ if (kiteCallback) {
   window.history.replaceState({}, "", `${window.location.pathname}${window.location.hash}`);
   kiteCallback = null;
 }
-
-window.addEventListener("hashchange", () => selectTool(getActiveTool(), false));
-elements.frame.addEventListener("load", () => {
-  elements.loader.classList.add("hidden");
-  elements.frame.classList.add("ready");
-});
 
 elements.collapseButton.addEventListener("click", () => {
   const collapsed = elements.shell.classList.toggle("collapsed");

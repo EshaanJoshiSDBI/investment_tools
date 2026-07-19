@@ -121,21 +121,11 @@ button { color: inherit; }
 .collapse-button:hover { background: var(--raised); }
 .collapse-button svg { width: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; }
 
-.workspace { display: grid; min-width: 0; grid-template-rows: 78px minmax(0, 1fr); background: var(--black); }
-.topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); padding: 0 22px 0 28px; }
-.breadcrumb { margin: 0; color: #5f655f; font: 11px "DM Mono", monospace; }
-.breadcrumb span { margin: 0 7px; color: #363a37; }
-.breadcrumb strong { color: var(--ink); font-weight: 500; }
-.tool-description { margin: 7px 0 0; color: var(--muted); font-size: 11px; }
-.topbar-actions { display: flex; align-items: center; gap: 18px; }
-.shortcut { color: #5f655f; font: 10px "DM Mono", monospace; }
+.workspace { min-width: 0; min-height: 0; background: var(--black); }
 kbd { border: 1px solid #343935; border-radius: 4px; padding: 2px 4px; background: #161917; color: #9a9f9a; font: inherit; }
-.open-button { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 6px; padding: 8px 11px; color: #b7bcb6; text-decoration: none; font-size: 10px; font-weight: 600; }
-.open-button:hover { border-color: #4a504b; color: var(--ink); }
-.open-button svg { width: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; }
 
-.stage { position: relative; min-height: 0; padding: 10px; background: radial-gradient(circle at 80% 0%, #1b211c 0, transparent 25%); }
-.stage iframe { display: block; width: 100%; height: 100%; border: 1px solid var(--line); border-radius: 8px; background: #101214; opacity: 0; transition: opacity 180ms ease; }
+.stage { position: relative; height: 100%; min-height: 0; background: var(--black); }
+.stage iframe { display: block; width: 100%; height: 100%; border: 0; background: #101214; opacity: 0; transition: opacity 180ms ease; }
 .stage iframe.ready { opacity: 1; }
 .loader { position: absolute; inset: 0; z-index: 1; display: grid; place-content: center; justify-items: center; background: var(--black); color: var(--muted); font: 10px "DM Mono", monospace; }
 .loader.hidden { display: none; }
@@ -158,18 +148,25 @@ kbd { border: 1px solid #343935; border-radius: 4px; padding: 2px 4px; backgroun
 .command-head input { border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 14px; }
 .command-results { padding: 8px; }
 .command-item:hover { background: var(--raised); }
+.command-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--line); padding: 11px 14px; color: #707670; font: 10px "DM Mono", monospace; }
+.command-footer span { display: flex; align-items: center; gap: 4px; }
+.command-footer a { display: inline-flex; align-items: center; gap: 7px; color: #aeb4ad; text-decoration: none; }
+.command-footer a:hover { color: var(--acid); }
+.command-footer svg { width: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; }
 
 @media (max-width: 760px) {
-  .app-shell, .app-shell.collapsed { grid-template-columns: 64px minmax(0, 1fr); }
-  .brand { padding: 0 19px; }
-  .brand span, .nav-label, .tool-link span, .local-mark, .collapse-button, .shortcut, .tool-description { display: none; }
-  .tool-nav { padding-inline: 7px; }
-  .tool-link { grid-template-columns: 38px; padding-inline: 6px; }
-  .sidebar-footer { justify-content: center; padding: 0; }
-  .topbar { padding-inline: 16px 10px; }
-  .open-button { width: 34px; overflow: hidden; white-space: nowrap; padding: 8px; color: transparent; gap: 20px; }
-  .open-button svg { min-width: 16px; color: var(--ink); }
-  .stage { padding: 6px; }
+  .app-shell, .app-shell.collapsed { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 66px; }
+  .workspace { grid-row: 1; }
+  .sidebar { grid-row: 2; flex-direction: row; border-top: 1px solid var(--line); border-right: 0; }
+  .brand, .sidebar-footer, .nav-label, .future-tool { display: none; }
+  .tool-nav { display: grid; width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 6px 10px; }
+  .tool-link, .collapsed .tool-link { display: flex; justify-content: center; gap: 8px; margin: 0 !important; padding: 5px 8px; }
+  .tool-link > svg, .command-item > svg { width: 32px; height: 32px; padding: 7px; }
+  .tool-link span, .collapsed .tool-link span { display: block; opacity: 1; }
+  .tool-link strong { font-size: 11px; }
+  .tool-link small { display: none; }
+  .command-footer > span { display: none; }
+  .command-footer { justify-content: flex-end; }
 }
 
 @media (prefers-reduced-motion: reduce) {

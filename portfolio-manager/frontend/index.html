@@ -3,199 +3,222 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Portfolio Manager MVP</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <meta name="theme-color" content="#0b0d0c" />
+    <title>Portfolio — Ledger</title>
+    <link rel="stylesheet" href="./styles.css?v=20260719-ui5" />
   </head>
   <body>
-    <main class="app-shell">
-      <header class="app-header">
-        <div>
-          <p class="eyebrow">Local MVP</p>
-          <h1>Portfolio Manager</h1>
+    <a class="skip-link" href="#pageContent">Skip to portfolio</a>
+
+    <div class="connection-banner" id="connectionBanner" hidden>
+      <span>Portfolio data is unavailable. Start the local backend and try again.</span>
+      <button class="text-button" id="retryConnection" type="button">Retry</button>
+    </div>
+
+    <main class="portfolio-shell" id="pageContent" tabindex="-1">
+      <header class="portfolio-header">
+        <div class="portfolio-identity">
+          <p class="eyebrow">Allocation workbench</p>
+          <h1>Portfolio</h1>
+          <div class="portfolio-meta" id="portfolioMeta" hidden>
+            <button class="source-trigger" id="historyButton" type="button" aria-haspopup="dialog">
+              <span id="portfolioSource">Current portfolio</span>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+            </button>
+            <span class="meta-separator" aria-hidden="true"></span>
+            <span class="save-indicator" id="saveStatus"><i></i><span>Saved locally</span></span>
+            <span class="meta-separator" aria-hidden="true"></span>
+            <span id="priceMetadata">Using imported prices</span>
+          </div>
         </div>
-        <div class="header-statuses">
-          <span class="save-status" id="saveStatus"></span>
-          <div class="status-pill" id="apiStatus">Backend not checked</div>
+        <div class="header-actions" id="headerActions" hidden>
+          <button class="secondary" id="updateHoldingsButton" type="button">Update holdings</button>
+          <div class="overflow-wrap">
+            <button class="icon-button" id="overflowButton" type="button" aria-label="Portfolio actions" aria-haspopup="menu" aria-expanded="false">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="4" r="1"/><circle cx="10" cy="10" r="1"/><circle cx="10" cy="16" r="1"/></svg>
+            </button>
+            <div class="action-menu" id="actionMenu" role="menu" hidden>
+              <button id="refreshPricesButton" type="button" role="menuitem">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M16 7a6 6 0 1 0 .2 5M16 3v4h-4" /></svg>
+                <span>Refresh prices</span>
+              </button>
+              <button id="exportBackupButton" type="button" role="menuitem">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12v10H4zM7 3h6v3M7 10h6" /></svg>
+                <span>Export backup</span>
+              </button>
+              <button id="kiteDisconnectButton" type="button" role="menuitem" hidden>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 5V3m6 2V3M5 7h10v3a5 5 0 0 1-10 0zM3 17h14" /></svg>
+                <span>Disconnect Kite</span>
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 
-      <section class="panel upload-panel" aria-labelledby="uploadTitle">
-        <div class="upload-intro">
-          <p class="upload-kicker">Portfolio import</p>
-          <h2 id="uploadTitle">Import Portfolio</h2>
-          <p class="muted">Upload a broker file or pull equity holdings from Zerodha Kite.</p>
-          <div class="required-columns" aria-label="Required columns">
-            <span>Stock Symbol</span>
-            <span>Qty</span>
-            <span>Avg.Price</span>
-            <span>LTP</span>
-          </div>
-        </div>
-        <div class="upload-workspace">
-          <div class="import-source">
-            <div class="source-heading">
-              <div>
-                <strong>Portfolio file</strong>
-                <small>CSV, XLSX, or XLS</small>
-              </div>
-            </div>
-            <div class="source-actions">
-              <label class="file-drop" for="portfolioFile">
-                <input id="portfolioFile" type="file" accept=".csv,.xlsx,.xls" />
-                <span class="file-icon" aria-hidden="true">XLS</span>
-                <span>
-                  <strong id="selectedFileName">Choose portfolio file</strong>
-                  <small>Drop or select a spreadsheet</small>
-                </span>
-              </label>
-              <button id="uploadButton" type="button">Upload</button>
-            </div>
-          </div>
-          <div class="import-source kite-source">
-            <div class="source-heading">
-              <div>
-                <strong>Zerodha Kite</strong>
-                <small>Manual, read-only equity holdings</small>
-              </div>
-              <span class="source-status" id="kiteStatus">Checking…</span>
-            </div>
-            <p class="source-description">Connect for the current trading day, then import explicitly.</p>
-            <div class="kite-actions">
-              <button id="kitePrimaryButton" type="button" disabled>Connect Kite</button>
-              <button id="kiteDisconnectButton" class="secondary" type="button" hidden>Disconnect</button>
-            </div>
-          </div>
-          <div class="backup-actions">
-            <button id="exportBackupButton" class="secondary" type="button" disabled>Export Backup</button>
-            <label class="button secondary" id="importBackupLabel">
-              Import Backup
-              <input id="backupFile" type="file" accept=".zip" hidden />
-            </label>
-          </div>
-          <div class="message error" id="errorArea" role="alert"></div>
-          <div class="message info" id="infoArea"></div>
-        </div>
-      </section>
-
-      <section class="panel history-panel" id="historyPanel" hidden aria-labelledby="historyTitle">
+      <section class="historical-banner" id="historicalBanner" hidden>
         <div>
-          <p class="upload-kicker">Saved locally</p>
-          <h2 id="historyTitle">Portfolio History</h2>
-          <p class="muted" id="snapshotMetadata"></p>
+          <strong>Viewing a historical snapshot</strong>
+          <span>Targets and configuration are read-only until this snapshot is restored.</span>
         </div>
-        <div class="history-controls">
-          <label for="snapshotSelect">Snapshot</label>
-          <select id="snapshotSelect"></select>
-          <button id="restoreButton" class="secondary" type="button" hidden>Restore Snapshot</button>
+        <div>
+          <button class="text-button" id="returnActiveButton" type="button">Return to active</button>
+          <button class="secondary" id="restoreButton" type="button">Restore as new active</button>
         </div>
       </section>
 
-      <section class="summary-grid" id="summaryGrid" aria-label="Portfolio summary">
-        <article class="metric-card">
-          <span>Total Market Value</span>
-          <strong id="totalMarketValue">-</strong>
-        </article>
-        <article class="metric-card">
-          <span>Total Cost</span>
-          <strong id="totalCost">-</strong>
-        </article>
-        <article class="metric-card">
-          <span>Unrealized P&amp;L</span>
-          <strong id="unrealizedPnl">-</strong>
-        </article>
-        <article class="metric-card">
-          <span>Holdings</span>
-          <strong id="holdingCount">-</strong>
-        </article>
+      <section class="empty-state" id="emptyState" hidden aria-labelledby="emptyTitle">
+        <div class="empty-copy">
+          <span class="empty-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32"><path d="M5 25V14m7 11V8m7 17V17m7 8V4M3 28h26" /></svg>
+          </span>
+          <p class="eyebrow">Start your workspace</p>
+          <h2 id="emptyTitle">Bring your holdings into focus.</h2>
+          <p>Import a broker spreadsheet or connect Zerodha Kite. Ledger stores the portfolio locally and never places trades.</p>
+        </div>
+        <div class="empty-actions">
+          <button id="emptyUpdateButton" type="button">Import holdings</button>
+          <label class="button secondary" id="importBackupLabel">
+            Import backup
+            <input id="backupFile" type="file" accept=".zip" hidden />
+          </label>
+        </div>
       </section>
 
-      <section class="panel" aria-labelledby="holdingsTitle">
-        <div class="section-header">
-          <div>
-            <h2 id="holdingsTitle">Holdings</h2>
-            <p class="muted" id="priceMetadata">Current allocation from backend calculations.</p>
+      <div id="workspace" hidden>
+        <section class="summary-grid" aria-label="Portfolio summary">
+          <article class="metric-card"><span>Market value</span><strong id="totalMarketValue">—</strong></article>
+          <article class="metric-card"><span>Total cost</span><strong id="totalCost">—</strong></article>
+          <article class="metric-card"><span>Unrealized P&amp;L</span><strong id="unrealizedPnl">—</strong></article>
+          <article class="metric-card"><span>Holdings</span><strong id="holdingCount">—</strong></article>
+        </section>
+
+        <div class="workbench-grid">
+          <section class="panel allocation-panel" aria-labelledby="allocationTitle">
+            <div class="panel-heading allocation-heading">
+              <div>
+                <p class="eyebrow">Step 1</p>
+                <h2 id="allocationTitle">Target allocation</h2>
+                <p>Set the intended invested weight for each holding.</p>
+              </div>
+              <div class="quick-actions" id="quickActions">
+                <button class="quiet" id="useCurrentButton" type="button">Use current</button>
+                <button class="quiet" id="distributeButton" type="button">Distribute equally</button>
+                <button class="quiet" id="clearTargetsButton" type="button">Clear</button>
+              </div>
+            </div>
+
+            <div class="allocation-tools" id="allocationTools" hidden>
+              <label class="search-field">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="5"/><path d="m13 13 4 4"/></svg>
+                <input id="allocationSearch" type="search" placeholder="Search symbol" autocomplete="off" />
+              </label>
+              <span id="allocationResultCount"></span>
+            </div>
+
+            <div class="allocation-header" aria-hidden="true">
+              <span>Symbol</span><span>Market value</span><span>Current</span><span>Target</span><span>Difference</span><span>Current vs target</span>
+            </div>
+            <div class="allocation-rows" id="holdingsBody"></div>
+            <div class="pagination" id="allocationPagination" hidden></div>
+
+            <div class="allocation-total" id="allocationTotal">
+              <div>
+                <strong id="allocationTotalLabel">0.00% invested · 100.00% cash</strong>
+                <span id="allocationValidation">Targets below 100% keep the remainder as cash.</span>
+              </div>
+              <div class="total-track" aria-hidden="true"><span id="allocationProgress"></span></div>
+            </div>
+          </section>
+
+          <aside class="panel configure-panel" aria-labelledby="configureTitle">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Step 2</p>
+                <h2 id="configureTitle">Configure preview</h2>
+                <p>Set cash and whole-share rounding.</p>
+              </div>
+            </div>
+            <label class="field-label" for="freshCash">Fresh cash</label>
+            <div class="money-input"><span>₹</span><input id="freshCash" type="number" value="0" min="0" step="0.01" inputmode="decimal" /></div>
+            <p class="field-help" id="cashHelp">Deposit-only cash available for this plan.</p>
+
+            <label class="field-label" for="roundingMode">Rounding</label>
+            <select id="roundingMode">
+              <option value="nearest">Nearest whole share</option>
+              <option value="floor">Round down</option>
+              <option value="ceil">Round up</option>
+            </select>
+            <p class="field-help">Controls target quantities; prices remain unchanged.</p>
+
+            <div class="workflow-guide" aria-label="Workflow">
+              <span>Set targets</span><i>→</i><span>Configure</span><i>→</i><span>Preview trades</span>
+            </div>
+            <button class="primary-action" id="rebalanceButton" type="button">Preview trades</button>
+            <p class="preview-note">Informational only. Ledger cannot place orders.</p>
+          </aside>
+        </div>
+
+        <section class="panel preview-panel" id="previewPanel" hidden aria-labelledby="previewTitle">
+          <div class="preview-heading">
+            <div><p class="eyebrow">Step 3</p><h2 id="previewTitle">Trade preview</h2></div>
+            <button class="secondary" id="exportButton" type="button">Export CSV</button>
           </div>
-          <button id="refreshPricesButton" class="secondary" type="button" disabled>
-            Refresh Prices
-          </button>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Symbol</th>
-                <th>Qty</th>
-                <th>Avg Price</th>
-                <th>LTP</th>
-                <th>Market Value</th>
-                <th>Current Weight %</th>
-                <th>Unrealized P&amp;L</th>
-                <th>Unrealized P&amp;L %</th>
-                <th>Target Weight %</th>
-              </tr>
-            </thead>
-            <tbody id="holdingsBody">
-              <tr><td colspan="9" class="empty-cell">Upload a portfolio to begin.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="panel" aria-labelledby="rebalanceTitle">
-        <div class="section-header">
-          <div>
-            <h2 id="rebalanceTitle">Rebalancer</h2>
-            <p class="muted">Backend calculates target quantities and cash impact.</p>
+          <div class="cash-grid">
+            <div><span>Total buy</span><strong id="totalBuy">—</strong></div>
+            <div><span>Total sell</span><strong id="totalSell">—</strong></div>
+            <div><span>Net cash required</span><strong id="netCash">—</strong></div>
+            <div><span id="cashDeltaLabel">Cash remaining</span><strong id="cashDelta">—</strong></div>
           </div>
-          <div class="rebalance-controls">
-            <label>
-              Fresh cash
-              <input id="freshCash" type="number" value="0" step="0.01" />
-            </label>
-            <label>
-              Rounding
-              <select id="roundingMode">
-                <option value="nearest">Nearest</option>
-                <option value="floor">Floor</option>
-                <option value="ceil">Ceil</option>
-              </select>
-            </label>
-            <button id="rebalanceButton" type="button" disabled>Calculate</button>
+          <div class="trade-header" aria-hidden="true">
+            <span>Symbol</span><span>Action</span><span>Shares</span><span>Est. price</span><span>Est. value</span><span>Reason</span>
           </div>
-        </div>
-
-        <div class="cash-grid" id="cashGrid">
-          <div><span>Total Buy</span><strong id="totalBuy">-</strong></div>
-          <div><span>Total Sell</span><strong id="totalSell">-</strong></div>
-          <div><span>Net Cash Required</span><strong id="netCash">-</strong></div>
-          <div><span>Surplus / Shortfall</span><strong id="cashDelta">-</strong></div>
-        </div>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Symbol</th>
-                <th>Action</th>
-                <th>Trade Qty</th>
-                <th>Trade Value</th>
-                <th>Current Weight %</th>
-                <th>Target Weight %</th>
-                <th>Final Weight %</th>
-                <th>Drift %</th>
-              </tr>
-            </thead>
-            <tbody id="rebalanceBody">
-              <tr><td colspan="8" class="empty-cell">Run a rebalance to see trades.</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="footer-actions">
-          <button id="exportButton" class="secondary" type="button" disabled>Export Trades CSV</button>
-        </div>
-      </section>
+          <div class="trade-rows" id="rebalanceBody"></div>
+          <div class="pagination" id="tradePagination" hidden></div>
+          <p class="table-note">Prices are indicative and may change before an order is placed.</p>
+        </section>
+      </div>
     </main>
 
-    <script src="./app.js"></script>
+    <dialog class="sheet-dialog" id="updateDialog" aria-labelledby="updateTitle">
+      <div class="dialog-header">
+        <div><p class="eyebrow">Portfolio source</p><h2 id="updateTitle">Update holdings</h2><p>Import a new snapshot from a broker file or Zerodha Kite.</p></div>
+        <button class="icon-button dialog-close" type="button" aria-label="Close update holdings"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg></button>
+      </div>
+      <div class="source-grid">
+        <section class="source-card">
+          <div><span class="source-icon" aria-hidden="true">XLS</span><h3>Broker spreadsheet</h3><p>CSV, XLSX, or XLS with the four required columns.</p></div>
+          <div class="required-columns" aria-label="Required columns"><span>Stock Symbol</span><span>Qty</span><span>Avg.Price</span><span>LTP</span></div>
+          <label class="file-drop" for="portfolioFile">
+            <input id="portfolioFile" type="file" accept=".csv,.xlsx,.xls" />
+            <span><strong id="selectedFileName">Choose portfolio file</strong><small>Up to 10 MiB</small></span>
+            <span class="file-action">Browse</span>
+          </label>
+          <button id="uploadButton" type="button">Import spreadsheet</button>
+        </section>
+        <section class="source-card">
+          <div class="source-title"><span class="source-icon kite-icon" aria-hidden="true">K</span><div><h3>Zerodha Kite</h3><p>Manual, read-only long-term equity holdings.</p></div><span class="source-status" id="kiteStatus">Checking…</span></div>
+          <div class="kite-copy"><strong>Nothing is imported on sign-in.</strong><span>Connect for the trading day, then import explicitly.</span></div>
+          <button id="kitePrimaryButton" type="button" disabled>Connect Kite</button>
+        </section>
+      </div>
+      <div class="dialog-message" id="dialogMessage" role="alert" hidden></div>
+    </dialog>
+
+    <dialog class="sheet-dialog history-dialog" id="historyDialog" aria-labelledby="historyTitle">
+      <div class="dialog-header">
+        <div><p class="eyebrow">Saved locally</p><h2 id="historyTitle">Portfolio history</h2><p>Inspect immutable snapshots or restore one as a new active portfolio.</p></div>
+        <button class="icon-button dialog-close" type="button" aria-label="Close portfolio history"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"/></svg></button>
+      </div>
+      <div class="history-list" id="historyList"></div>
+    </dialog>
+
+    <dialog class="confirm-dialog" id="confirmDialog" aria-labelledby="confirmTitle">
+      <h2 id="confirmTitle">Clear all target weights?</h2>
+      <p>This creates a 0% invested target and previews moving the portfolio entirely to cash. It never places trades.</p>
+      <div><button class="secondary" id="cancelClearButton" type="button">Cancel</button><button id="confirmClearButton" type="button">Clear targets</button></div>
+    </dialog>
+
+    <div class="toast-region" id="toastRegion" aria-live="polite" aria-atomic="true"></div>
+    <script src="./app.js?v=20260719-ui5"></script>
   </body>
 </html>
