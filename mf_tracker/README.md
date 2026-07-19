@@ -1,7 +1,7 @@
 # MF Tracker ingestion backend
 
 Python 3.12+ ingestion library for monthly AMC portfolio workbooks. PPFAS,
-Helios, and Old Bridge source workbooks are auto-detected from their workbook structure, stored
+Helios, Old Bridge, and TRUSTMF source workbooks are auto-detected from their workbook structure, stored
 as immutable snapshots in SQLite, and compared month to month on demand.
 
 ## Setup
@@ -67,6 +67,8 @@ their current paths and are never moved automatically.
 .venv/bin/mf-tracker validate sheets/oldbridge/OBFX_c2050b88e7.xlsx --amc oldbridge --json
 .venv/bin/mf-tracker ingest-directory sheets/oldbridge --amc oldbridge --db ../data/mf_tracker.sqlite3 --dry-run
 .venv/bin/mf-tracker ingest-file sheets/oldbridge/OBFE_9d7d1d029f.xlsx --amc oldbridge --db ../data/mf_tracker.sqlite3
+.venv/bin/mf-tracker validate 'sheets/trust/Monthly Port_20260609172736.xlsx' --amc trust --json
+.venv/bin/mf-tracker ingest-directory sheets/trust --amc trust --db ../data/mf_tracker.sqlite3 --dry-run
 .venv/bin/mf-tracker verify-archive --db ../data/mf_tracker.sqlite3 --json
 .venv/bin/mf-tracker export-bundle --db ../data/mf_tracker.sqlite3 --output ../data/mf_tracker-backup.zip
 .venv/bin/mf-tracker import-bundle ../data/mf_tracker-backup.zip --db ../data/restored.sqlite3
@@ -83,8 +85,14 @@ adapter identifies fields and schemes from workbook content. The two stable fund
 codes are `OBFCE` (Old Bridge Focused Fund) and `OBFLX` (Old Bridge Flexi Cap
 Fund).
 
+TRUSTMF publishes one monthly `.xlsx` containing both debt and equity fund tabs.
+The adapter deliberately ignores every debt-fund tab before `TMFFLEXI` and ingests
+the five equity-fund tabs from `TMFFLEXI` onward: `TMFFLEXI`, `TMFSCAP`,
+`TMFMCAP`, `TMFARB`, and `TMFMID`. Debt or money-market positions disclosed
+inside one of those equity-fund portfolios remain part of that fund's snapshot.
+
 `--amc` is optional and defaults to structural auto-detection. Set it to
-`ppfas`, `helios`, or `oldbridge` to require a particular adapter. For a single
+`ppfas`, `helios`, `oldbridge`, or `trust` to require a particular adapter. For a single
 file, source metadata can be replaced explicitly:
 
 ```bash

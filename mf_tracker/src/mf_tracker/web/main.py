@@ -264,7 +264,7 @@ def create_app(db_path: str | Path, source_store: str | Path | None = None) -> F
 
     @app.get("/api/meta")
     def meta() -> dict[str, Any]:
-        return {"supported_amcs": ["auto", "ppfas", "helios", "oldbridge"], "change_types": ["introduced", "exited", "increased", "decreased", "unchanged"], "currency_unit": "INR lakh"}
+        return {"supported_amcs": ["auto", "ppfas", "helios", "oldbridge", "trust"], "change_types": ["introduced", "exited", "increased", "decreased", "unchanged"], "currency_unit": "INR lakh"}
 
     @app.get("/api/overview")
     def overview(amc: str | None = None, months: int = Query(6, ge=1, le=24)) -> dict[str, Any]:

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Callable
 
-from .amcs import helios, oldbridge, ppfas
+from .amcs import helios, oldbridge, ppfas, trust
 from .domain import IngestionIssue, MetadataOverrides, ParsedWorkbook
 from .errors import ValidationError
 from .workbooks import read_workbook
@@ -27,6 +27,7 @@ ADAPTERS = (
     Adapter("ppfas", ppfas.matches_workbook, lambda p, r, _: ppfas.parse_raw_workbook(p, r), frozenset(ppfas.SHEET_CODES)),
     Adapter("helios", helios.matches_workbook, lambda p, r, _: helios.parse_raw_workbook(p, r), frozenset(helios.SHEET_CODES)),
     Adapter("oldbridge", oldbridge.matches_workbook, oldbridge.parse_raw_workbook, frozenset(oldbridge.SHEET_CODES)),
+    Adapter("trust", trust.matches_workbook, lambda p, r, _: trust.parse_raw_workbook(p, r), frozenset(trust.SHEET_CODES)),
 )
 ADAPTER_BY_SLUG = {adapter.slug: adapter for adapter in ADAPTERS}
 
@@ -106,7 +107,8 @@ def parse_workbook(
     overrides = _normalize_overrides(metadata)
     selected_amc = "auto" if amc is None else amc.strip().lower()
     if selected_amc not in {"auto", *ADAPTER_BY_SLUG}:
-        raise ValidationError(f"unsupported AMC {amc!r}; expected auto, ppfas, helios, or oldbridge")
+        expected = ", ".join(("auto", *ADAPTER_BY_SLUG))
+        raise ValidationError(f"unsupported AMC {amc!r}; expected {expected}")
     if selected_amc != "auto":
         adapter = ADAPTER_BY_SLUG[selected_amc]
         if not adapter.matcher(raw):

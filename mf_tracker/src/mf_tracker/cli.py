@@ -78,7 +78,7 @@ def _date(value: str) -> date:
 
 
 def _add_amc_argument(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--amc", choices=("auto", "ppfas", "helios", "oldbridge"), default="auto")
+    parser.add_argument("--amc", choices=("auto", "ppfas", "helios", "oldbridge", "trust"), default="auto")
 
 
 def _add_metadata_arguments(parser: argparse.ArgumentParser) -> None:
