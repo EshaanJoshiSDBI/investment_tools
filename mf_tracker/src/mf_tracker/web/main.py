@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.background import BackgroundTask
 
 from ..bundles import export_bundle, verify_archive
-from ..comparison import compare_snapshots
+from ..comparison import classify_movement, compare_snapshots, movement_value
 from ..domain import MetadataOverrides
 from ..errors import MfTrackerError, SnapshotConflictError
 from ..ingestion import ingest_file
@@ -63,6 +63,176 @@ def _csv_response(rows: list[dict[str, Any]], filename: str) -> Response:
         writer.writeheader()
         writer.writerows(rows)
     return Response(output.getvalue(), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+TIMELINE_PERIODS = {"6m": 6, "12m": 12, "24m": 24, "all": None}
+CHANGE_TYPES = ("introduced", "increased", "decreased", "exited", "unchanged")
+
+
+def _delta(before: dict[str, Any] | None, after: dict[str, Any] | None, field: str) -> float | None:
+    before_value = before.get(field) if before else None
+    after_value = after.get(field) if after else None
+    if before_value is None or after_value is None:
+        return None
+    return after_value - before_value
+
+
+def _timeline_payload(
+    repo: SQLiteRepository,
+    fund_id: int,
+    period: str,
+    focus_from: str | None,
+    focus_to: str | None,
+    search: str,
+    asset_class: str,
+    change_type: str,
+) -> dict[str, Any]:
+    if period not in TIMELINE_PERIODS:
+        raise _error(422, "invalid_period", "Period must be one of 6m, 12m, 24m, or all.")
+    if change_type and change_type not in CHANGE_TYPES:
+        raise _error(422, "invalid_change_type", "Focused movement filter is not supported.")
+
+    snapshots_desc = repo.list_snapshots(fund_id)
+    if not snapshots_desc:
+        raise _error(404, "fund_snapshots_not_found", "No active disclosures were found for this fund.")
+    limit = TIMELINE_PERIODS[period]
+    selected_desc = snapshots_desc if limit is None else snapshots_desc[:limit]
+    selected = list(reversed(selected_desc))
+    visible_dates = [item["report_date"] for item in selected]
+    available_dates = [item["report_date"] for item in snapshots_desc]
+
+    if len(visible_dates) >= 2:
+        focus_from = focus_from or visible_dates[-2]
+        focus_to = focus_to or visible_dates[-1]
+    elif not focus_from and not focus_to:
+        focus_from = focus_to = visible_dates[0]
+    try:
+        if focus_from:
+            date.fromisoformat(focus_from)
+        if focus_to:
+            date.fromisoformat(focus_to)
+    except ValueError as exc:
+        raise _error(422, "invalid_date", "Timeline dates must use YYYY-MM-DD.") from exc
+    if focus_from not in visible_dates or focus_to not in visible_dates:
+        raise _error(422, "focus_outside_period", "Focused dates must be visible in the selected period.")
+    if focus_from > focus_to:
+        raise _error(422, "invalid_focus_interval", "Focused from-date must not follow the to-date.")
+
+    oldest_index = available_dates.index(visible_dates[0])
+    preceding_date = available_dates[oldest_index + 1] if oldest_index + 1 < len(available_dates) else None
+    query_dates = ([preceding_date] if preceding_date else []) + visible_dates
+    raw_rows = repo.timeline_rows(fund_id, query_dates)
+    by_identity: dict[str, dict[str, dict[str, Any]]] = {}
+    for row in raw_rows:
+        report_date = row.pop("report_date")
+        by_identity.setdefault(row["identity_key"], {})[report_date] = row
+
+    rows: list[dict[str, Any]] = []
+    for identity_key, history in by_identity.items():
+        visible_holdings = [history.get(value) for value in visible_dates]
+        metadata = next((item for item in reversed(visible_holdings) if item is not None), None)
+        if metadata is None:
+            continue
+        focus_before = history.get(focus_from)
+        focus_after = history.get(focus_to)
+        focus_asset = (focus_after or focus_before or metadata)["asset_class"]
+        # A holding can belong to the wider timeline without existing at either
+        # focused endpoint. Keep it visible historically, but do not mislabel it
+        # as unchanged or include it in the focused comparison counts.
+        focused_change = (
+            classify_movement(focus_asset, focus_before, focus_after)
+            if focus_before is not None or focus_after is not None
+            else None
+        )
+
+        points: list[dict[str, Any]] = []
+        previous = history.get(preceding_date) if preceding_date else None
+        for point_index, (report_date, holding) in enumerate(zip(visible_dates, visible_holdings, strict=True)):
+            point_asset = (holding or previous or metadata)["asset_class"]
+            has_previous_snapshot = preceding_date is not None or point_index > 0
+            action = classify_movement(point_asset, previous, holding) if has_previous_snapshot and (previous is not None or holding is not None) else None
+            movement_before = movement_value(point_asset, previous)
+            movement_after = movement_value(point_asset, holding)
+            action_delta = None if movement_before is None or movement_after is None else movement_after - movement_before
+            points.append({
+                "report_date": report_date,
+                "present": holding is not None,
+                "quantity": holding.get("quantity") if holding else None,
+                "market_value_lakh": holding.get("market_value_lakh") if holding else None,
+                "weight": holding.get("weight") if holding else None,
+                "action": action,
+                "action_metric": "market_value_lakh" if point_asset in {"cash_receivable", "repo_treps"} else "quantity",
+                "action_delta": action_delta,
+            })
+            previous = holding
+
+        row = {
+            "identity_key": identity_key,
+            "display_name": metadata["display_name"],
+            "isin": metadata.get("isin"),
+            "asset_class": metadata["asset_class"],
+            "instrument_type": metadata["instrument_type"],
+            "industry_rating": metadata.get("industry_rating"),
+            "section": metadata.get("section"),
+            "subsection": metadata.get("subsection"),
+            "focus": {
+                "change_type": focused_change,
+                "quantity_from": focus_before.get("quantity") if focus_before else None,
+                "quantity_to": focus_after.get("quantity") if focus_after else None,
+                "quantity_delta": _delta(focus_before, focus_after, "quantity"),
+                "market_value_from": focus_before.get("market_value_lakh") if focus_before else None,
+                "market_value_to": focus_after.get("market_value_lakh") if focus_after else None,
+                "market_value_delta": _delta(focus_before, focus_after, "market_value_lakh"),
+                "weight_from": focus_before.get("weight") if focus_before else None,
+                "weight_to": focus_after.get("weight") if focus_after else None,
+                "weight_delta": _delta(focus_before, focus_after, "weight"),
+            },
+            "points": points,
+        }
+        rows.append(row)
+
+    asset_classes = sorted({row["asset_class"] for row in rows})
+    needle = search.strip().casefold()
+    filtered_base = [row for row in rows if not needle or needle in row["display_name"].casefold() or needle in str(row.get("isin") or "").casefold()]
+    if asset_class:
+        filtered_base = [row for row in filtered_base if row["asset_class"] == asset_class]
+    counts = {kind: sum(row["focus"]["change_type"] == kind for row in filtered_base) for kind in CHANGE_TYPES}
+    filtered = [row for row in filtered_base if not change_type or row["focus"]["change_type"] == change_type]
+    filtered.sort(key=lambda row: (row["points"][-1]["weight"] is None, -(row["points"][-1]["weight"] or 0), row["display_name"].casefold()))
+    return {
+        "dates": selected,
+        "period": period,
+        "preceding_date": preceding_date,
+        "focus": {"from_date": focus_from, "to_date": focus_to, "counts": counts},
+        "asset_classes": asset_classes,
+        "total": len(filtered),
+        "items": filtered,
+    }
+
+
+def _timeline_csv_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    dates = [item["report_date"] for item in payload["dates"]]
+    for item in payload["items"]:
+        focus = item["focus"]
+        row = {
+            "identity_key": item["identity_key"],
+            "instrument": item["display_name"],
+            "isin": item["isin"],
+            "asset_class": item["asset_class"],
+            "instrument_type": item["instrument_type"],
+            "focused_change": focus["change_type"],
+            "focused_quantity_delta": focus["quantity_delta"],
+            "focused_weight_delta_pct": None if focus["weight_delta"] is None else focus["weight_delta"] * 100,
+        }
+        for report_date, point in zip(dates, item["points"], strict=True):
+            row[f"{report_date}_weight_pct"] = None if point["weight"] is None else point["weight"] * 100
+            row[f"{report_date}_quantity"] = point["quantity"]
+            row[f"{report_date}_market_value_lakh"] = point["market_value_lakh"]
+            row[f"{report_date}_action"] = point["action"]
+            row[f"{report_date}_action_delta"] = point["action_delta"]
+        rows.append(row)
+    return rows
 
 
 def create_app(db_path: str | Path, source_store: str | Path | None = None) -> FastAPI:
@@ -117,6 +287,34 @@ def create_app(db_path: str | Path, source_store: str | Path | None = None) -> F
     def snapshots(fund_id: int, include_superseded: bool = False) -> list[dict[str, Any]]:
         with repository() as repo:
             return repo.list_snapshots(fund_id, include_superseded=include_superseded)
+
+    @app.get("/api/funds/{fund_id}/timeline")
+    def timeline(
+        fund_id: int,
+        period: str = "6m",
+        focus_from: str | None = None,
+        focus_to: str | None = None,
+        search: str = "",
+        asset_class: str = "",
+        change_type: str = "",
+    ) -> dict[str, Any]:
+        with repository() as repo:
+            return _timeline_payload(repo, fund_id, period, focus_from, focus_to, search, asset_class, change_type)
+
+    @app.get("/api/funds/{fund_id}/timeline.csv")
+    def timeline_csv(
+        fund_id: int,
+        period: str = "6m",
+        focus_from: str | None = None,
+        focus_to: str | None = None,
+        search: str = "",
+        asset_class: str = "",
+        change_type: str = "",
+    ) -> Response:
+        with repository() as repo:
+            payload = _timeline_payload(repo, fund_id, period, focus_from, focus_to, search, asset_class, change_type)
+        filename = f"timeline-{fund_id}-{payload['dates'][0]['report_date']}-{payload['dates'][-1]['report_date']}.csv"
+        return _csv_response(_timeline_csv_rows(payload), filename)
 
     @app.get("/api/funds/{fund_id}/holdings")
     def holdings(fund_id: int, report_date: str, search: str = "", asset_class: str = "", sort: str = "weight", direction: str = "desc", page: int = Query(1, ge=1), page_size: int = Query(50, ge=1, le=250)) -> dict[str, Any]:

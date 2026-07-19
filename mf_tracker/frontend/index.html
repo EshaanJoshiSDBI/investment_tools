@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#101214" />
     <title>MF Tracker</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=20260719-newest1" />
   </head>
   <body>
-    <a class="skip-link" href="#pageContent">Skip to content</a>
+    <a class="skip-link" href="#portfolioTimeline">Skip to timeline</a>
     <div class="app">
       <header class="masthead">
         <div class="identity">
@@ -19,7 +19,7 @@
         </div>
         <div class="mast-actions">
           <span class="health" id="health"><i></i><span>Checking data</span></span>
-          <button class="primary" data-view="imports" type="button">
+          <button class="primary" id="importShortcut" type="button">
             <svg viewBox="0 0 20 20"><path d="M10 14V3m0 0L6 7m4-4 4 4M3 13v4h14v-4"/></svg>
             Import files
           </button>
@@ -27,72 +27,98 @@
       </header>
 
       <nav class="section-tabs" aria-label="MF Tracker sections">
-        <button data-view="overview" aria-current="page">Overview</button>
-        <button data-view="holdings">Holdings</button>
-        <button data-view="compare">Compare</button>
-        <button data-view="imports">Imports</button>
-        <button data-view="data">Data</button>
+        <a href="#coverage" data-section="coverage" aria-current="page">Coverage</a>
+        <a href="#portfolioTimeline" data-section="portfolioTimeline">Portfolio timeline</a>
+        <a href="#imports" data-section="imports">Imports</a>
+        <a href="#data" data-section="data">Data</a>
       </nav>
 
       <div class="connection-banner" id="connectionBanner" hidden>
-        <span>MF Tracker backend is unavailable. Existing information may be out of date.</span>
+        <span>MF Tracker backend is unavailable. Research data may be out of date.</span>
         <button type="button" id="retryConnection">Retry</button>
       </div>
 
-      <main id="pageContent" tabindex="-1">
-        <section class="view" id="overviewView" data-page="overview">
-          <div class="page-heading">
-            <div><p class="eyebrow">Disclosure desk</p><h2>Monthly coverage</h2><p>See which fund disclosures are ready for research.</p></div>
+      <main id="pageContent">
+        <section class="workspace-section hero-section" id="coverage" tabindex="-1" aria-labelledby="coverageHeading">
+          <div class="page-heading coverage-heading">
+            <div><p class="eyebrow">Disclosure desk</p><h2 id="coverageHeading">Monthly coverage</h2><p>See which disclosures are ready before tracing portfolio movement.</p></div>
             <label class="compact-field">AMC<select id="overviewAmc"><option value="">All AMCs</option></select></label>
           </div>
-          <section class="ledger-panel" aria-labelledby="coverageTitle">
+          <div class="coverage-register" id="overviewCounts" aria-label="Archive summary"></div>
+          <section class="ledger-panel" aria-labelledby="ledgerTitle">
             <div class="panel-heading">
-              <div><h3 id="coverageTitle">Disclosure ledger</h3><p>Active snapshots across the six latest reporting dates</p></div>
+              <div><h3 id="ledgerTitle">Disclosure ledger</h3><p>Active snapshots across the six latest reporting dates</p></div>
               <div class="legend" aria-label="Coverage legend"><span><i class="available"></i>Available</span><span><i class="warning"></i>Has warnings</span><span><i class="missing"></i>Missing</span></div>
             </div>
             <div class="coverage-wrap" id="coverageMatrix"><div class="loading-row">Reading disclosure history…</div></div>
           </section>
-          <div class="overview-lower">
-            <section class="panel register" aria-labelledby="registerTitle"><div class="panel-heading"><div><h3 id="registerTitle">Register</h3><p>What the archive currently contains</p></div></div><div class="register-grid" id="overviewCounts"></div></section>
-            <section class="panel" aria-labelledby="recentTitle"><div class="panel-heading"><div><h3 id="recentTitle">Recent imports</h3><p>Newest source files in the archive</p></div><button class="text-button" data-view="imports">View all</button></div><div id="recentImports" class="activity-list"></div></section>
-          </div>
         </section>
 
-        <section class="view" id="holdingsView" data-page="holdings" hidden>
-          <div class="page-heading"><div><p class="eyebrow">Snapshot reader</p><h2>Holdings</h2><p>Inspect a fund exactly as disclosed for a reporting month.</p></div><a class="button secondary" id="holdingsExport" href="#">Export CSV</a></div>
-          <div class="control-strip">
-            <label>AMC<select id="holdingsAmc"><option value="">Choose AMC</option></select></label>
-            <label class="wide">Fund<select id="holdingsFund"><option value="">Choose fund</option></select></label>
-            <label>Reporting month<select id="holdingsDate"><option value="">Choose month</option></select></label>
+        <section class="workspace-section timeline-section" id="portfolioTimeline" tabindex="-1" aria-labelledby="timelineHeading">
+          <div class="page-heading">
+            <div><p class="eyebrow">Longitudinal ledger</p><h2 id="timelineHeading">Portfolio timeline</h2><p>Follow disclosed conviction month by month, with exact movement beneath every weight.</p></div>
+            <div class="export-actions">
+              <a class="button secondary" id="focusExport" href="#">Focused CSV</a>
+              <a class="button primary" id="timelineExport" href="#">Timeline CSV</a>
+            </div>
           </div>
-          <div class="table-tools">
-            <label class="search-field"><svg viewBox="0 0 20 20"><circle cx="9" cy="9" r="5"/><path d="m13 13 4 4"/></svg><input id="holdingsSearch" type="search" placeholder="Search instrument or ISIN" /></label>
-            <label>Asset class<select id="holdingsAsset"><option value="">All classes</option></select></label>
-            <span class="result-count" id="holdingsCount"></span>
+
+          <div class="timeline-context panel">
+            <label>AMC<select id="timelineAmc"><option value="">Choose AMC</option></select></label>
+            <label class="wide">Fund<select id="timelineFund"><option value="">Choose fund</option></select></label>
+            <fieldset class="period-control"><legend>History</legend><div id="periodButtons" class="segmented">
+              <button type="button" data-period="6m" aria-pressed="true">6M</button>
+              <button type="button" data-period="12m" aria-pressed="false">12M</button>
+              <button type="button" data-period="24m" aria-pressed="false">24M</button>
+              <button type="button" data-period="all" aria-pressed="false">All</button>
+            </div></fieldset>
+            <button class="secondary latest-button" id="jumpLatest" type="button">Jump to latest →</button>
           </div>
-          <section class="data-panel"><div class="table-wrap"><table><thead><tr><th>Instrument</th><th>Asset class</th><th>Type</th><th>Quantity</th><th>Market value <small>₹ lakh</small></th><th>Weight</th><th>Rating / detail</th></tr></thead><tbody id="holdingsBody"></tbody></table></div><div class="pagination" id="holdingsPagination"></div></section>
+
+          <section class="focus-panel" aria-labelledby="focusTitle">
+            <div class="focus-controls">
+              <div><p class="eyebrow">Focused interval</p><h3 id="focusTitle">Exact movement</h3></div>
+              <label>From<select id="focusFrom"><option value="">Earlier month</option></select></label>
+              <span class="focus-arrow" aria-hidden="true">→</span>
+              <label>To<select id="focusTo"><option value="">Later month</option></select></label>
+            </div>
+            <div class="change-register" id="changeCounts" aria-label="Focused movement summary"></div>
+          </section>
+
+          <div class="timeline-tools">
+            <label class="search-field"><span class="sr-only">Search timeline</span><svg viewBox="0 0 20 20"><circle cx="9" cy="9" r="5"/><path d="m13 13 4 4"/></svg><input id="timelineSearch" type="search" placeholder="Search instrument or ISIN" /></label>
+            <label>Asset class<select id="timelineAsset"><option value="">All classes</option></select></label>
+            <label>Sort<select id="timelineSort"><option value="latest">Latest weight</option><option value="name">Instrument name</option><option value="movement">Focused movement</option></select></label>
+            <span class="result-count" id="timelineCount" aria-live="polite"></span>
+          </div>
+
+          <section class="timeline-panel" aria-labelledby="timelineTableTitle">
+            <div class="table-title-row">
+              <div><h3 id="timelineTableTitle">Monthly position ledger</h3><p>Weight · disclosed holding · monthly activity. Cash and TREPS use market value instead of quantity.</p></div>
+              <span class="scroll-hint">Shift + scroll horizontally</span>
+            </div>
+            <div class="top-scroll" id="topScroll" tabindex="0" aria-label="Horizontal timeline scroll"><div id="topScrollSpacer"></div></div>
+            <div class="timeline-header-shell" id="timelineHeaderShell" aria-label="Timeline column controls">
+              <div class="visual-head instrument-visual-head">Instrument</div>
+              <div class="visual-head focus-visual-head" id="focusVisualHead"></div>
+              <div class="month-header-viewport">
+                <div class="month-header-track" id="monthHeaderTrack"></div>
+              </div>
+            </div>
+            <div class="timeline-scroll" id="timelineScroll" tabindex="0" aria-label="Multi-month portfolio timeline">
+              <table class="timeline-table">
+                <caption class="sr-only">Portfolio holdings across reporting months with focused interval changes</caption>
+                <colgroup id="timelineCols"></colgroup>
+                <thead id="timelineHead"></thead>
+                <tbody id="timelineBody"><tr><td class="empty-state">Choose a fund to read its timeline.</td></tr></tbody>
+              </table>
+              <div class="load-sentinel" id="timelineSentinel" aria-hidden="true"></div>
+            </div>
+          </section>
         </section>
 
-        <section class="view" id="compareView" data-page="compare" hidden>
-          <div class="page-heading"><div><p class="eyebrow">Change desk</p><h2>Compare disclosures</h2><p>Separate new conviction from routine portfolio movement.</p></div><a class="button secondary" id="compareExport" href="#">Export CSV</a></div>
-          <div class="control-strip comparison-controls">
-            <label>AMC<select id="compareAmc"><option value="">Choose AMC</option></select></label>
-            <label class="wide">Fund<select id="compareFund"><option value="">Choose fund</option></select></label>
-            <label>From<select id="compareFrom"><option value="">Earlier month</option></select></label>
-            <span class="compare-arrow" aria-hidden="true">→</span>
-            <label>To<select id="compareTo"><option value="">Later month</option></select></label>
-          </div>
-          <div class="change-register" id="changeCounts"></div>
-          <div class="table-tools">
-            <label class="search-field"><svg viewBox="0 0 20 20"><circle cx="9" cy="9" r="5"/><path d="m13 13 4 4"/></svg><input id="compareSearch" type="search" placeholder="Search instrument" /></label>
-            <label>Change<select id="compareChange"><option value="">All changes</option><option value="introduced">Introduced</option><option value="increased">Increased</option><option value="decreased">Decreased</option><option value="exited">Exited</option><option value="unchanged">Unchanged</option></select></label>
-            <label>Asset class<select id="compareAsset"><option value="">All classes</option></select></label>
-          </div>
-          <section class="data-panel"><div class="table-wrap"><table><thead><tr><th>Instrument</th><th>Change</th><th>Quantity from</th><th>Quantity to</th><th>Quantity Δ</th><th>Weight from</th><th>Weight to</th><th>Weight Δ</th></tr></thead><tbody id="compareBody"></tbody></table></div><div class="pagination" id="comparePagination"></div></section>
-        </section>
-
-        <section class="view" id="importsView" data-page="imports" hidden>
-          <div class="page-heading"><div><p class="eyebrow">Source intake</p><h2>Import disclosures</h2><p>Validate every workbook before it enters the research archive.</p></div></div>
+        <section class="workspace-section" id="imports" tabindex="-1" aria-labelledby="importsHeading">
+          <div class="page-heading"><div><p class="eyebrow">Source intake</p><h2 id="importsHeading">Import disclosures</h2><p>Validate every workbook before it enters the research archive.</p></div></div>
           <section class="intake-panel">
             <div class="drop-zone" id="dropZone">
               <input id="fileInput" type="file" accept=".xls,.xlsx" multiple />
@@ -106,17 +132,17 @@
           <section class="panel history-panel"><div class="panel-heading"><div><h3>Import history</h3><p>Audited sources and snapshot lifecycle</p></div><button class="secondary small" id="refreshImports">Refresh</button></div><div class="table-wrap"><table><thead><tr><th>Source file</th><th>AMC / funds</th><th>Report date</th><th>Status</th><th>Snapshots</th><th>Imported</th></tr></thead><tbody id="importsBody"></tbody></table></div></section>
         </section>
 
-        <section class="view" id="dataView" data-page="data" hidden>
-          <div class="page-heading"><div><p class="eyebrow">Archive stewardship</p><h2>Data</h2><p>Check the local research archive and take a portable backup.</p></div></div>
+        <section class="workspace-section" id="data" tabindex="-1" aria-labelledby="dataHeading">
+          <div class="page-heading"><div><p class="eyebrow">Archive stewardship</p><h2 id="dataHeading">Data</h2><p>Check the local research archive and take a portable backup.</p></div></div>
           <div class="data-layout">
             <section class="panel"><div class="panel-heading"><div><h3>Workspace status</h3><p>The database currently served to this browser</p></div><span class="status-badge ok">Connected</span></div><dl class="definition-list" id="workspaceStatus"></dl></section>
             <section class="panel archive-actions"><div><span class="action-icon">✓</span><h3>Verify source archive</h3><p>Check every referenced workbook for missing or changed bytes.</p><button class="secondary" id="verifyArchive">Run verification</button></div><div><span class="action-icon">↓</span><h3>Download backup</h3><p>Export database records and archived workbooks as a portable ZIP.</p><a class="button primary" href="/api/bundles/export">Download backup</a></div></section>
           </div>
-          <section class="panel cli-note"><p class="eyebrow">CLI-only safeguards</p><h3>Restore and directory imports stay outside the browser.</h3><p>Use the command line when restoring a bundle into an empty database or ingesting a server-side directory. This prevents accidental replacement of the active workspace.</p></section>
+          <details class="panel cli-note"><summary>CLI-only safeguards</summary><div><h3>Restore and directory imports stay outside the browser.</h3><p>Use the command line when restoring a bundle into an empty database or ingesting a server-side directory. This prevents accidental replacement of the active workspace.</p></div></details>
         </section>
       </main>
     </div>
     <div class="toast-region" id="toastRegion" aria-live="polite"></div>
-    <script type="module" src="./app.js"></script>
+    <script type="module" src="./app.js?v=20260719-newest1"></script>
   </body>
 </html>

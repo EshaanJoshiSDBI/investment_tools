@@ -23,7 +23,9 @@ Open `http://127.0.0.1:5174`, or serve the repository root on port 5173 and
 open MF Tracker from the shared Ledger shell. The browser interface provides:
 
 - a fund-by-month disclosure coverage ledger;
-- searchable holdings and month-to-month comparisons with CSV export;
+- a continuous, horizontally scrollable portfolio timeline with no page breaks;
+- three-level monthly cells showing portfolio weight, the disclosed holding, and add/trim/new/exit activity;
+- an exact focused two-month comparison, expandable position detail, and two CSV exports;
 - validate-first single and multi-file workbook imports;
 - explicit append-only snapshot replacement when an import conflicts; and
 - archive verification and portable backup export.
@@ -31,6 +33,21 @@ open MF Tracker from the shared Ledger shell. The browser interface provides:
 Browser uploads accept up to 20 `.xls` or `.xlsx` files at once and 25 MiB per
 file. Bundle restoration and server-side directory ingestion remain CLI-only
 safeguards.
+
+The timeline opens on the latest six active disclosures, newest month first, and
+can expand to 12 months, 24 months, or all available history. Stored weights are fractions, while
+the browser and timeline CSV display percentage points (`0.0224` becomes
+`2.24%`). Each present equity position shows its absolute disclosed shares as
+well as the change from the preceding disclosure. Other quantity-based
+instruments show units. Cash receivables and repo/TREPS show market value in INR
+lakh because they do not have a useful quantity field. Missing disclosure values
+remain unavailable rather than being inferred as zero.
+
+The timeline API is available at
+`GET /api/funds/{fund_id}/timeline?period=6m`. Optional `focus_from`, `focus_to`,
+`search`, `asset_class`, and `change_type` parameters drive the focused interval
+and filters. Add `.csv` before the query string for the wide analyst export.
+The older holdings and pairwise-comparison endpoints remain available.
 
 The `--db` path controls which persistent workspace is opened. The repository
 convention stores records in `../data/mf_tracker.sqlite3` and original source

@@ -12,7 +12,7 @@ const tools = [
     name: "MF Tracker",
     shortName: "MF Tracker",
     description: "Track and compare monthly mutual fund portfolios.",
-    url: "http://127.0.0.1:5174",
+    url: "http://127.0.0.1:5174/?v=20260719-newest1",
     icon: "layers",
   },
 ];

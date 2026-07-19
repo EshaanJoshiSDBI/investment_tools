@@ -409,6 +409,23 @@ class SQLiteRepository:
         ).fetchall()
         return pl.DataFrame([dict(row) for row in rows], strict=False, infer_schema_length=None) if rows else pl.DataFrame()
 
+    def timeline_rows(self, fund_id: int, report_dates: list[str]) -> list[dict[str, Any]]:
+        """Load active holdings for several disclosures in one ordered query."""
+        if not report_dates:
+            return []
+        placeholders = ",".join("?" for _ in report_dates)
+        rows = self.connection.execute(
+            f"""SELECT s.report_date,h.identity_key,h.display_name,h.isin,h.asset_class,
+                h.instrument_type,h.quantity,h.market_value_lakh,h.weight,h.ytm,h.ytc,
+                h.direction,h.expiry,h.industry_rating,h.section,h.subsection
+                FROM snapshots s JOIN holdings h ON h.snapshot_id=s.id
+                WHERE s.fund_id=? AND s.lifecycle_status='active'
+                  AND s.report_date IN ({placeholders})
+                ORDER BY s.report_date,h.identity_key""",
+            (fund_id, *report_dates),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
     def list_amcs(self) -> list[dict[str, Any]]:
         rows = self.connection.execute(
             """SELECT a.id,a.slug,a.name,COUNT(DISTINCT f.id) AS fund_count,

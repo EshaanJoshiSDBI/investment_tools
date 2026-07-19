@@ -16,6 +16,28 @@ def _metric(asset_class: str) -> str:
     return "quantity"
 
 
+def movement_value(asset_class: str, holding: dict | None) -> float | None:
+    """Return the disclosure value that represents manager activity."""
+    if holding is None:
+        return None
+    return holding.get(_metric(asset_class))
+
+
+def classify_movement(asset_class: str, before: dict | None, after: dict | None) -> str:
+    """Classify movement using the same semantics as pairwise comparisons."""
+    before_value = movement_value(asset_class, before)
+    after_value = movement_value(asset_class, after)
+    if before_value is None:
+        return "introduced" if after_value is not None else "unchanged"
+    if after_value is None:
+        return "exited"
+    if after_value > before_value:
+        return "increased"
+    if after_value < before_value:
+        return "decreased"
+    return "unchanged"
+
+
 def compare_snapshots(repository: SQLiteRepository, fund_id: int, from_date: date, to_date: date,
                       asset_classes: list[str] | None = None) -> ComparisonResult:
     before = repository.snapshot_frame(fund_id, from_date.isoformat())
@@ -52,4 +74,3 @@ def compare_snapshots(repository: SQLiteRepository, fund_id: int, from_date: dat
         .otherwise(pl.lit("unchanged")).alias("change_type")
     )
     return ComparisonResult(fund_id, from_date, to_date, joined.sort(["asset_class_effective", "identity_key"]))
-
